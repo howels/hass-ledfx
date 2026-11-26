@@ -13,8 +13,9 @@ from homeassistant.const import (
     CONF_USERNAME,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceEntry
 
-from .const import DEFAULT_SCAN_INTERVAL, DEFAULT_TIMEOUT, PLATFORMS
+from .const import DEFAULT_SCAN_INTERVAL, DEFAULT_TIMEOUT, DOMAIN, PLATFORMS
 from .helper import build_auth, get_config_value
 from .updater import LedFxConfigEntry, LedFxUpdater
 
@@ -76,3 +77,26 @@ async def async_unload_entry(hass: HomeAssistant, entry: LedFxConfigEntry) -> bo
 
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
+
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, entry: LedFxConfigEntry, device_entry: DeviceEntry
+) -> bool:
+    """Allow removal of a device that LedFx no longer reports.
+
+    The service device and every virtual that LedFx currently reports stay.
+
+    :param hass: HomeAssistant: Home Assistant object
+    :param entry: LedFxConfigEntry: Config Entry object
+    :param device_entry: DeviceEntry: Device to remove
+    :return bool: Is removal allowed
+    """
+
+    updater: LedFxUpdater | None = getattr(entry, "runtime_data", None)
+
+    if updater is None:
+        return True
+
+    current: set[tuple[str, str]] = {(DOMAIN, updater.address)}
+    current |= {updater.device_identifier(code) for code in updater.devices}
+
+    return not device_entry.identifiers & current

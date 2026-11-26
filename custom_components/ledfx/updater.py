@@ -191,6 +191,18 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
             configuration_url=f"http://{self.address}/",
         )
 
+    def device_identifier(self, code: str) -> tuple[str, str]:
+        """Return the device registry identifier of a virtual.
+
+        The identifier is unique per LedFx address and virtual, so virtuals that
+        share one physical device remain separate devices with their own names.
+
+        :param code: str: Virtual id
+        :return tuple[str, str]: Device registry identifier
+        """
+
+        return (DOMAIN, f"{self.address}-{code}")
+
     async def _async_prepare(self, method: str, data: dict) -> None:
         """Prepare data.
 
@@ -590,9 +602,7 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
 
             device_config: dict = device.get("config", {})
             device_info: DeviceInfo = DeviceInfo(
-                identifiers={
-                    (DOMAIN, device_config.get("ip_address", f"{self.address}-{code}"))
-                },
+                identifiers={self.device_identifier(code)},
                 name=device_config.get("name", code),
                 model=device_config.get("type") or device.get("type"),
                 configuration_url=f"http://{self.address}/devices/{code}",

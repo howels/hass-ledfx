@@ -13,6 +13,7 @@ import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util.dt import utcnow
 from pytest_homeassistant_custom_component.common import (
@@ -20,6 +21,7 @@ from pytest_homeassistant_custom_component.common import (
     load_fixture,
 )
 
+from custom_components.ledfx import async_remove_config_entry_device
 from custom_components.ledfx.const import ATTR_STATE, DEFAULT_SCAN_INTERVAL, DOMAIN
 from custom_components.ledfx.enums import Version
 from custom_components.ledfx.exceptions import LedFxConnectionError
@@ -145,7 +147,14 @@ async def test_sw_version_uses_ledfx_version(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        assert config_entry.runtime_data.device_info["sw_version"] == "2.2.1"
+        service = _device(
+            dr.async_get(hass),
+            config_entry.entry_id,
+            (DOMAIN, config_entry.runtime_data.address),
+        )
+
+        assert service is not None
+        assert service.sw_version == "2.2.1"
 
 
 async def test_virtual_with_effect_but_inactive_is_off(hass: HomeAssistant) -> None:
@@ -184,6 +193,26 @@ async def test_virtuals_without_physical_devices(hass: HomeAssistant) -> None:
         assert DOMAIN in hass.config.components
 
 
+def _device(
+    registry: dr.DeviceRegistry, entry_id: str, identifier: tuple[str, str]
+) -> dr.DeviceEntry | None:
+    """Return the device of a config entry by identifier.
+
+    Home Assistant 2026.11 deprecates `async_get_device` because identifiers are
+    unique per config entry only. Filtering the entry's devices works on every
+    supported release.
+    """
+
+    return next(
+        (
+            device
+            for device in dr.async_entries_for_config_entry(registry, entry_id)
+            if identifier in device.identifiers
+        ),
+        None,
+    )
+
+
 async def test_entities_follow_the_entity_naming_standard(hass: HomeAssistant) -> None:
     """Every entity names itself relative to its device."""
 
@@ -207,3 +236,61 @@ async def test_entities_follow_the_entity_naming_standard(hass: HomeAssistant) -
         assert lights
         # A light is the main feature of its device and carries no name of its own.
         assert all(entry.original_name is None for entry in lights)
+
+
+async def test_virtuals_are_separate_devices(hass: HomeAssistant) -> None:
+    """Each virtual has its own device next to the service device."""
+
+    with patch("custom_components.ledfx.updater.LedFxClient") as mock_client:
+        await async_mock_client_2(mock_client)
+
+        _, config_entry = await async_setup(hass)
+
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        updater: LedFxUpdater = config_entry.runtime_data
+        registry = dr.async_get(hass)
+
+        service = _device(registry, config_entry.entry_id, (DOMAIN, updater.address))
+
+        assert service is not None
+        assert service.entry_type is dr.DeviceEntryType.SERVICE
+        assert updater.devices
+
+        for code in updater.devices:
+            device = _device(
+                registry, config_entry.entry_id, updater.device_identifier(code)
+            )
+
+            assert device is not None
+            assert device.id != service.id
+
+
+async def test_remove_config_entry_device(hass: HomeAssistant) -> None:
+    """A device LedFx still reports stays. A stale device can be removed."""
+
+    with patch("custom_components.ledfx.updater.LedFxClient") as mock_client:
+        await async_mock_client_2(mock_client)
+
+        _, config_entry = await async_setup(hass)
+
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        updater: LedFxUpdater = config_entry.runtime_data
+        registry = dr.async_get(hass)
+
+        service = _device(registry, config_entry.entry_id, (DOMAIN, updater.address))
+        code = next(iter(updater.devices))
+        current = _device(
+            registry, config_entry.entry_id, (DOMAIN, f"{updater.address}-{code}")
+        )
+        stale = registry.async_get_or_create(
+            config_entry_id=config_entry.entry_id,
+            identifiers={(DOMAIN, f"{updater.address}-gone")},
+        )
+
+        assert not await async_remove_config_entry_device(hass, config_entry, service)
+        assert not await async_remove_config_entry_device(hass, config_entry, current)
+        assert await async_remove_config_entry_device(hass, config_entry, stale)
