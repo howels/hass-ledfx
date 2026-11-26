@@ -13,6 +13,7 @@ import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.util.dt import utcnow
 from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
@@ -181,3 +182,28 @@ async def test_virtuals_without_physical_devices(hass: HomeAssistant) -> None:
 
         assert hass.states.get("light.ledfx_192_168_31_1_wled") is not None
         assert DOMAIN in hass.config.components
+
+
+async def test_entities_follow_the_entity_naming_standard(hass: HomeAssistant) -> None:
+    """Every entity names itself relative to its device."""
+
+    with patch("custom_components.ledfx.updater.LedFxClient") as mock_client:
+        await async_mock_client_2(mock_client)
+
+        _, config_entry = await async_setup(hass)
+
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        registry = er.async_get(hass)
+        entries = er.async_entries_for_config_entry(registry, config_entry.entry_id)
+
+        assert entries
+        assert all(entry.has_entity_name for entry in entries)
+        assert all(entry.device_id for entry in entries)
+
+        lights = [entry for entry in entries if entry.domain == "light"]
+
+        assert lights
+        # A light is the main feature of its device and carries no name of its own.
+        assert all(entry.original_name is None for entry in lights)

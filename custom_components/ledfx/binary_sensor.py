@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import ATTR_STATE, ATTR_STATE_NAME
+from .const import ATTR_STATE
 from .entity import LedFxEntity
 from .updater import LedFxConfigEntry, LedFxUpdater
 
@@ -29,7 +29,7 @@ ICONS: Final = {
 BINARY_SENSORS: tuple[BinarySensorEntityDescription, ...] = (
     BinarySensorEntityDescription(
         key=ATTR_STATE,
-        name=ATTR_STATE_NAME,
+        translation_key=ATTR_STATE,
         icon=ICONS[f"{ATTR_STATE}_{STATE_ON}"],
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=True,

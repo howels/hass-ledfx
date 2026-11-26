@@ -69,7 +69,7 @@ async def test_init(hass: HomeAssistant) -> None:
             _generate_id(ATTR_SELECT_AUDIO_INPUT_NAME, updater.ip)
         )
         assert state.state == "ALSA: KT USB Audio: - (hw:1,0)"
-        assert state.name == ATTR_SELECT_AUDIO_INPUT_NAME
+        assert state.name == "LedFx " + ATTR_SELECT_AUDIO_INPUT_NAME
         assert state.attributes["icon"] == "mdi:audio-input-stereo-minijack"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["options"] == [
@@ -140,7 +140,7 @@ async def test_update_audio_devices(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == "ALSA: KT USB Audio: - (hw:1,0)"
-        assert state.name == ATTR_SELECT_AUDIO_INPUT_NAME
+        assert state.name == "LedFx " + ATTR_SELECT_AUDIO_INPUT_NAME
         assert state.attributes["options"] == [
             "ALSA: KT USB Audio: - (hw:1,0)",
             "ALSA: pulse",
@@ -156,7 +156,7 @@ async def test_update_audio_devices(hass: HomeAssistant) -> None:
 
         state = hass.states.get(unique_id)
         assert state.state == "ALSA: default"
-        assert state.name == ATTR_SELECT_AUDIO_INPUT_NAME
+        assert state.name == "LedFx " + ATTR_SELECT_AUDIO_INPUT_NAME
         assert state.attributes["options"] == [
             "ALSA: KT USB Audio: - (hw:1,0)",
             "ALSA: pulse",
@@ -266,7 +266,7 @@ async def test_effect_property(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == "Rainbow"
-        assert state.name == "Gradient"
+        assert state.name == "WLED Gradient"
         assert state.attributes["options"] == [
             "Borealis",
             "Dancefloor",

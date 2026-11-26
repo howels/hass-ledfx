@@ -42,6 +42,23 @@
       }
     }
   },
+  "entity": {
+    "binary_sensor": {
+      "state": {
+        "name": "Durum"
+      }
+    },
+    "select": {
+      "audio_input": {
+        "name": "Ses girişi"
+      }
+    },
+    "media_player": {
+      "playback": {
+        "name": "Oynatma"
+      }
+    }
+  },
   "system_health": {
     "info": {
       "version": "Version"

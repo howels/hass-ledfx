@@ -74,7 +74,7 @@ async def test_init(hass: HomeAssistant) -> None:
             _generate_id(ATTR_SELECT_AUDIO_INPUT_NAME, updater.ip)
         )
         assert state.state == "USB PnP Sound Device: Audio (hw:0,0)"
-        assert state.name == ATTR_SELECT_AUDIO_INPUT_NAME
+        assert state.name == "LedFx " + ATTR_SELECT_AUDIO_INPUT_NAME
         assert state.attributes["icon"] == "mdi:audio-input-stereo-minijack"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["options"] == [
@@ -160,7 +160,7 @@ async def test_update_audio_devices(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == "USB PnP Sound Device: Audio (hw:0,0)"
-        assert state.name == ATTR_SELECT_AUDIO_INPUT_NAME
+        assert state.name == "LedFx " + ATTR_SELECT_AUDIO_INPUT_NAME
         assert state.attributes["options"] == [
             "USB PnP Sound Device: Audio (hw:0,0)",
             "sysdefault",
@@ -181,7 +181,7 @@ async def test_update_audio_devices(hass: HomeAssistant) -> None:
 
         state = hass.states.get(unique_id)
         assert state.state == "spdif"
-        assert state.name == ATTR_SELECT_AUDIO_INPUT_NAME
+        assert state.name == "LedFx " + ATTR_SELECT_AUDIO_INPUT_NAME
         assert state.attributes["options"] == [
             "USB PnP Sound Device: Audio (hw:0,0)",
             "sysdefault",
@@ -290,7 +290,7 @@ async def test_effect_property(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == "black"
-        assert state.name == "Background Color"
+        assert state.name == "Garland #1 Background Color"
         assert state.attributes["icon"] == "mdi:format-color-fill"
         assert state.attributes["options"] == [
             "black",
@@ -443,21 +443,21 @@ async def test_new_effect_property(hass: HomeAssistant) -> None:
         unique_id = _generate_id("wled_new_select", updater.ip)
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_UNKNOWN
-        assert state.name == "New select"
+        assert state.name == "Garland #1 New select"
         assert state.attributes["options"] == ["breath", "sine"]
         assert state.attributes["attribution"] == ATTRIBUTION
 
         unique_id = _generate_id("ambi_new_select", updater.ip)
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "New select"
+        assert state.name == "Ambilight New select"
         assert state.attributes["options"] == ["breath", "sine"]
         assert state.attributes["attribution"] == ATTRIBUTION
 
         unique_id = _generate_id("garland_2_new_select", updater.ip)
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "New select"
+        assert state.name == "Garland #2 New select"
         assert state.attributes["options"] == ["breath", "sine"]
         assert state.attributes["attribution"] == ATTRIBUTION
 
@@ -503,7 +503,7 @@ async def test_effect_incorrect_property(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "Align"
+        assert state.name == "Garland #1 Align"
         assert state.attributes["icon"] == "mdi:format-vertical-align-center"
         assert state.attributes["options"] == ["center", "invert", "left", "right"]
         assert state.attributes["attribution"] == ATTRIBUTION
@@ -550,7 +550,7 @@ async def test_effect_property_disabled_light(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "Align"
+        assert state.name == "Ambilight Align"
         assert state.attributes["icon"] == "mdi:format-vertical-align-center"
         assert state.attributes["options"] == ["center", "invert", "left", "right"]
         assert state.attributes["attribution"] == ATTRIBUTION

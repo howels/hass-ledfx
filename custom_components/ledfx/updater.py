@@ -608,7 +608,7 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
             self.devices[code] = LedFxEntityDescription(
                 description=LightEntityDescription(
                     key=code,
-                    name=device_config.get("name", code),
+                    name=None,
                     icon=icon if icon.startswith("mdi:") else "mdi:led-strip-variant",
                     entity_registry_enabled_default=True,
                 ),

@@ -86,7 +86,7 @@ async def test_scenes(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_UNKNOWN
-        assert state.name == "Test"
+        assert state.name == "LedFx Test"
         assert state.attributes["icon"] == "mdi:image"
         assert state.attributes["attribution"] == ATTRIBUTION
 
@@ -163,7 +163,7 @@ async def test_new_scene(hass: HomeAssistant) -> None:
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNKNOWN
-        assert state.name == "New Scene"
+        assert state.name == "LedFx New Scene"
         assert state.attributes["attribution"] == ATTRIBUTION
 
 

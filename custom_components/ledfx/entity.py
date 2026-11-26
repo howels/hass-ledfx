@@ -30,6 +30,7 @@ class LedFxEntity(CoordinatorEntity):
     """LedFx entity."""
 
     _attr_attribution: str = ATTRIBUTION
+    _attr_has_entity_name = True
     _attr_device_code: str | None = None
     _attr_field_type: str | None = None
 
@@ -59,7 +60,6 @@ class LedFxEntity(CoordinatorEntity):
             description.key,
         )
 
-        self._attr_name = description.name
         self._attr_unique_id = unique_id
         self._attr_available = updater.data.get(ATTR_STATE, False)
 

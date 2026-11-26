@@ -24,7 +24,6 @@ from .const import (
     ATTR_LIGHT_EFFECT_CONFIG,
     ATTR_LIGHT_STATE,
     ATTR_SELECT_AUDIO_INPUT,
-    ATTR_SELECT_AUDIO_INPUT_NAME,
     ATTR_SELECT_AUDIO_INPUT_OPTIONS,
     ATTR_STATE,
     SELECT_ICONS,
@@ -45,7 +44,7 @@ OPTIONS_MAP: Final = {
 SELECTS: tuple[SelectEntityDescription, ...] = (
     SelectEntityDescription(
         key=ATTR_SELECT_AUDIO_INPUT,
-        name=ATTR_SELECT_AUDIO_INPUT_NAME,
+        translation_key=ATTR_SELECT_AUDIO_INPUT,
         icon="mdi:audio-input-stereo-minijack",
         entity_category=EntityCategory.CONFIG,
         entity_registry_enabled_default=True,

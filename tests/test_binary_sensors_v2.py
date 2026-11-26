@@ -66,7 +66,7 @@ async def test_init(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(_generate_id(ATTR_STATE_NAME, updater.ip))
         assert state.state == STATE_ON
-        assert state.name == ATTR_STATE_NAME
+        assert state.name == "LedFx " + ATTR_STATE_NAME
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
 
@@ -108,7 +108,7 @@ async def test_update_state(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.name == ATTR_STATE_NAME
+        assert state.name == "LedFx " + ATTR_STATE_NAME
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None

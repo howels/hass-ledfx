@@ -22,7 +22,7 @@ PARALLEL_UPDATES = 0
 MEDIA_PLAYERS: tuple[MediaPlayerEntityDescription, ...] = (
     MediaPlayerEntityDescription(
         key="media_player",
-        name="LedFx media player",
+        translation_key="playback",
         device_class=MediaPlayerDeviceClass.TV,
         entity_registry_enabled_default=True,
     ),

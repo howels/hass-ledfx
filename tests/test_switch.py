@@ -138,7 +138,7 @@ async def test_effect_property(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_OFF
-        assert state.name == "Flip"
+        assert state.name == "Garland #1 Flip"
         assert state.attributes["icon"] == "mdi:flip-horizontal"
         assert state.attributes["attribution"] == ATTRIBUTION
 
@@ -262,19 +262,19 @@ async def test_new_effect_property(hass: HomeAssistant) -> None:
         unique_id = _generate_id("wled_new_switch", updater.ip)
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
-        assert state.name == "New switch"
+        assert state.name == "Garland #1 New switch"
         assert state.attributes["attribution"] == ATTRIBUTION
 
         unique_id = _generate_id("ambi_new_switch", updater.ip)
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "New switch"
+        assert state.name == "Ambilight New switch"
         assert state.attributes["attribution"] == ATTRIBUTION
 
         unique_id = _generate_id("garland_2_new_switch", updater.ip)
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "New switch"
+        assert state.name == "Garland #2 New switch"
         assert state.attributes["attribution"] == ATTRIBUTION
 
 
@@ -319,7 +319,7 @@ async def test_effect_incorrect_property(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "Sparks"
+        assert state.name == "Garland #1 Sparks"
         assert state.attributes["icon"] == "mdi:shimmer"
         assert state.attributes["attribution"] == ATTRIBUTION
 
@@ -365,7 +365,7 @@ async def test_effect_property_disabled_light(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "Sparks"
+        assert state.name == "Ambilight Sparks"
         assert state.attributes["icon"] == "mdi:shimmer"
         assert state.attributes["attribution"] == ATTRIBUTION
 

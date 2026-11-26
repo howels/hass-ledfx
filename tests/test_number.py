@@ -115,7 +115,7 @@ async def test_effect_property(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert float(state.state) == 0.0
-        assert state.name == "Blur"
+        assert state.name == "Garland #1 Blur"
         assert state.attributes["icon"] == "mdi:blur"
         assert state.attributes["min"] == 0.0
         assert state.attributes["max"] == 10.0
@@ -235,7 +235,7 @@ async def test_new_effect_property(hass: HomeAssistant) -> None:
         unique_id = _generate_id("wled_new_number", updater.ip)
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_UNKNOWN
-        assert state.name == "New number"
+        assert state.name == "Garland #1 New number"
         assert state.attributes["min"] == 0.0
         assert state.attributes["max"] == 10.0
         assert state.attributes["step"] == 0.1
@@ -244,7 +244,7 @@ async def test_new_effect_property(hass: HomeAssistant) -> None:
         unique_id = _generate_id("ambi_new_number", updater.ip)
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "New number"
+        assert state.name == "Ambilight New number"
         assert state.attributes["min"] == 0.0
         assert state.attributes["max"] == 10.0
         assert state.attributes["step"] == 0.1
@@ -253,7 +253,7 @@ async def test_new_effect_property(hass: HomeAssistant) -> None:
         unique_id = _generate_id("garland_2_new_number", updater.ip)
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "New number"
+        assert state.name == "Garland #2 New number"
         assert state.attributes["min"] == 0.0
         assert state.attributes["max"] == 10.0
         assert state.attributes["step"] == 0.1
@@ -301,7 +301,7 @@ async def test_effect_incorrect_property(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "Band Count"
+        assert state.name == "Garland #1 Band Count"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["min"] == 1.0
         assert state.attributes["max"] == 16.0
@@ -350,7 +350,7 @@ async def test_effect_property_disabled_light(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "Band Count"
+        assert state.name == "Ambilight Band Count"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["min"] == 1.0
         assert state.attributes["max"] == 16.0

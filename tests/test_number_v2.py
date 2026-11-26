@@ -112,7 +112,7 @@ async def test_effect_property(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert float(state.state) == 0.0
-        assert state.name == "Blur"
+        assert state.name == "WLED Blur"
         assert state.attributes["icon"] == "mdi:blur"
         assert state.attributes["min"] == 0.0
         assert state.attributes["max"] == 10.0
@@ -185,7 +185,7 @@ async def test_effect_property_disabled_light(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.name == "Band Count"
+        assert state.name == "WLED Band Count"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["min"] == 1.0
         assert state.attributes["max"] == 16.0

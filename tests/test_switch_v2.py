@@ -133,7 +133,7 @@ async def test_effect_property(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_OFF
-        assert state.name == "Flip"
+        assert state.name == "WLED Flip"
         assert state.attributes["icon"] == "mdi:flip-horizontal"
         assert state.attributes["attribution"] == ATTRIBUTION
 

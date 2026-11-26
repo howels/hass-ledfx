@@ -42,6 +42,23 @@
       }
     }
   },
+  "entity": {
+    "binary_sensor": {
+      "state": {
+        "name": "Status"
+      }
+    },
+    "select": {
+      "audio_input": {
+        "name": "Audioeingang"
+      }
+    },
+    "media_player": {
+      "playback": {
+        "name": "Wiedergabe"
+      }
+    }
+  },
   "system_health": {
     "info": {
       "version": "Version"

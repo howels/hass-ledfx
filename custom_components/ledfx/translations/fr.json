@@ -42,6 +42,23 @@
       }
     }
   },
+  "entity": {
+    "binary_sensor": {
+      "state": {
+        "name": "État"
+      }
+    },
+    "select": {
+      "audio_input": {
+        "name": "Entrée audio"
+      }
+    },
+    "media_player": {
+      "playback": {
+        "name": "Lecture"
+      }
+    }
+  },
   "system_health": {
     "info": {
       "version": "Version"

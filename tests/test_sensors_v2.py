@@ -101,13 +101,13 @@ async def test_update_device_sensors_v2(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(_generate_id("fft_size", updater.ip))
         assert state.state == str(4096)
-        assert state.name == "fft_size".replace("_", " ").title()
+        assert state.name == "LedFx " + "fft_size".replace("_", " ").title()
         assert state.attributes["icon"] == "mdi:numeric"
         assert state.attributes["attribution"] == ATTRIBUTION
 
         state = hass.states.get(_generate_id("mic_rate", updater.ip))
         assert state.state == str(44100)
-        assert state.name == "mic_rate".replace("_", " ").title()
+        assert state.name == "LedFx " + "mic_rate".replace("_", " ").title()
         assert state.attributes["icon"] == "mdi:microphone-settings"
         assert state.attributes["attribution"] == ATTRIBUTION
 
@@ -192,7 +192,7 @@ async def test_update_new_sensors_v2(hass: HomeAssistant) -> None:
 
         state = hass.states.get(unique_id)
         assert state.state == "good"
-        assert state.name == "new_sensor".replace("_", " ").title()
+        assert state.name == "LedFx " + "new_sensor".replace("_", " ").title()
         assert state.attributes["attribution"] == ATTRIBUTION
 
 
