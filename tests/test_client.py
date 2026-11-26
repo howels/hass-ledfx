@@ -282,6 +282,29 @@ async def test_no_credentials_sends_no_header(hass: HomeAssistant) -> None:
     assert session.request.call_args.kwargs["headers"] is None
 
 
+async def test_failure_reason(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The error carries the reason that LedFx gives."""
+
+    aioclient_mock.put(
+        get_url("scenes"),
+        json={
+            "status": "failed",
+            "payload": {"type": "error", "reason": "Scene 'x' not found."},
+        },
+    )
+
+    with pytest.raises(LedFxRequestError, match="Scene 'x' not found."):
+        await _client(hass).run_scene("x")
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.put(get_url("scenes"), json={"status": "failed"})
+
+    with pytest.raises(LedFxRequestError, match="Request error"):
+        await _client(hass).run_scene("x")
+
+
 async def test_https_url(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:

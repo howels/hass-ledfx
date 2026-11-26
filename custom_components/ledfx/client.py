@@ -30,6 +30,21 @@ PRESET_CATEGORIES_V2: dict[str, str] = {
 }
 
 
+def _failure_reason(data: dict) -> str:
+    """Return the reason LedFx gives for a failed request.
+
+    :param data: dict: Decoded response body
+    :return str: The reason, or a generic message when LedFx gives none
+    """
+
+    payload: Any = data.get("payload")
+
+    if isinstance(payload, dict) and isinstance(payload.get("reason"), str):
+        return payload["reason"] or "Request error"
+
+    return "Request error"
+
+
 # pylint: disable=too-many-public-methods,too-many-arguments
 class LedFxClient:
     """LedFx API Client."""
@@ -139,7 +154,7 @@ class LedFxClient:
         ):
             self._debug("Invalid status received", _url, _data, path)
 
-            raise LedFxRequestError("Request error")
+            raise LedFxRequestError(_failure_reason(_data))
 
         if (isinstance(validate_field, str) and validate_field not in _data) or (
             isinstance(validate_field, tuple)
