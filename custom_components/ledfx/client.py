@@ -5,16 +5,10 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
+from http import HTTPStatus
 from typing import Any
 
-from httpx import (
-    USE_CLIENT_DEFAULT,
-    AsyncClient,
-    ConnectError,
-    HTTPError,
-    Response,
-    TransportError,
-)
+from aiohttp import BasicAuth, ClientError, ClientSession, ClientTimeout
 
 from .const import (
     CLIENT_URL,
@@ -24,10 +18,16 @@ from .const import (
     DIAGNOSTIC_DATE_TIME,
     DIAGNOSTIC_MESSAGE,
 )
-from .enum import Method
+from .enums import EffectCategory, Method
 from .exceptions import LedFxConnectionError, LedFxRequestError
 
 _LOGGER = logging.getLogger(__name__)
+
+# Preset category names used by the LedFx configuration version 2 API.
+PRESET_CATEGORIES_V2: dict[str, str] = {
+    EffectCategory.DEFAULT.value: "ledfx_presets",
+    EffectCategory.CUSTOM.value: "user_presets",
+}
 
 
 # pylint: disable=too-many-public-methods,too-many-arguments
@@ -37,37 +37,38 @@ class LedFxClient:
     ip: str  # pylint: disable=invalid-name
     port: str
 
-    _client: AsyncClient
-    _auth: Any = USE_CLIENT_DEFAULT
+    _session: ClientSession
+    _auth: BasicAuth | None = None
     _timeout: int = DEFAULT_TIMEOUT
 
     _url: str
 
     def __init__(
         self,
-        client: AsyncClient,
+        session: ClientSession,
         ip: str,  # pylint: disable=invalid-name
         port: str,
-        auth: Any = USE_CLIENT_DEFAULT,
+        auth: BasicAuth | None = None,
         timeout: int = DEFAULT_TIMEOUT,
     ) -> None:
         """Initialize API client.
 
-        :param client: AsyncClient: AsyncClient object
-        :param ip: str: ip address
+        :param session: ClientSession: aiohttp session
+        :param ip: str: ip address or host name
         :param port: str: port
-        :param auth: Union[Tuple, USE_CLIENT_DEFAULT]: auth data
+        :param auth: BasicAuth | None: auth data
         :param timeout: int: Query execution timeout
         """
 
         ip = ip.removesuffix("/")
-        self._client = client
+        self._session = session
         self.ip = ip  # pylint: disable=invalid-name
         self.port = port
         self._auth = auth
         self._timeout = timeout
 
-        self._url = CLIENT_URL.format(ip=ip, port=port)
+        host: str = f"[{ip}]" if ":" in ip and not ip.startswith("[") else ip
+        self._url = CLIENT_URL.format(ip=host, port=port)
 
         self.diagnostics: dict[str, Any] = {}
 
@@ -94,38 +95,48 @@ class LedFxClient:
         )
         _url: str = f"{self._url}/{path}"
 
+        status: int = 0
+
         try:
-            async with self._client as client:
-                response: Response = await client.request(
-                    method.value, _url, json=body, timeout=_timeout, auth=self._auth
-                )
+            async with self._session.request(
+                method.value,
+                _url,
+                json=body,
+                auth=self._auth,
+                timeout=ClientTimeout(total=_timeout),
+            ) as response:
+                content: bytes = await response.read()
+                status = response.status
 
-            self._debug("Successful request", _url, response.content, path)
+            self._debug("Successful request", _url, content, path)
 
-            _data: dict = json.loads(response.content)
-        except (
-            HTTPError,
-            ConnectError,
-            TransportError,
-            ValueError,
-            TypeError,
-            json.JSONDecodeError,
-        ) as _e:  # pragma: no cover
+            _data: Any = json.loads(content)
+        except (ClientError, TimeoutError, ValueError, TypeError) as _e:
+            if status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN):
+                self._debug("Authentication failed", _url, _e, path)
+
+                raise LedFxRequestError("Authentication failed") from _e
+
             self._debug("Connection error", _url, _e, path)
 
             raise LedFxConnectionError("Connection error") from _e
 
+        if not isinstance(_data, dict):
+            self._debug("Invalid response received", _url, _data, path)
+
+            raise LedFxRequestError("Request error")
+
         if validate_field == "status" and (
             validate_field not in _data or _data[validate_field] != "success"
-        ):  # pragma: no cover
+        ):
             self._debug("Invalid status received", _url, _data, path)
 
             raise LedFxRequestError("Request error")
 
         if (isinstance(validate_field, str) and validate_field not in _data) or (
             isinstance(validate_field, tuple)
-            and not any(key for key in validate_field if key in _data)
-        ):  # pragma: no cover
+            and not any(key in _data for key in validate_field)
+        ):
             self._debug("Invalid response received", _url, _data, path)
 
             raise LedFxRequestError("Request error")
@@ -249,6 +260,9 @@ class LedFxClient:
 
         prefix: str = "virtuals" if is_virtual else "devices"
 
+        if is_virtual:
+            category = PRESET_CATEGORIES_V2.get(category, category)
+
         return await self.request(
             f"{prefix}/{device_code}/presets",
             Method.PUT,
@@ -290,8 +304,10 @@ class LedFxClient:
 
         return await self.request("audio/devices", Method.PUT, {"index": index})
 
-    async def toggle_play_pause(self) -> None:
-        """toggle play/pause method.
+    async def toggle_play_pause(self) -> dict:
+        """virtuals pause toggle method.
+
+        :return dict: dict with api data, including the new `paused` state.
         """
 
         return await self.request("virtuals", Method.PUT)

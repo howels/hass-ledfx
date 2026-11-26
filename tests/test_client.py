@@ -1,284 +1,310 @@
-"""Tests for the ledfx component."""
+"""Tests for the ledfx API client."""
 
-# pylint: disable=no-member,too-many-statements,protected-access,too-many-lines,line-too-long
+# pylint: disable=protected-access
 
 from __future__ import annotations
 
 import json
-import logging
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from aiohttp import BasicAuth
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.httpx_client import get_async_client
-from httpx import Request
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from pytest_homeassistant_custom_component.common import load_fixture
-from pytest_httpx import HTTPXMock
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.ledfx.client import LedFxClient
-from custom_components.ledfx.enum import Method
+from custom_components.ledfx.enums import Method
+from custom_components.ledfx.exceptions import LedFxConnectionError, LedFxRequestError
 from tests.setup import MOCK_DEVICE, MOCK_IP_ADDRESS, MOCK_PORT, get_url
 
-_LOGGER = logging.getLogger(__name__)
+EFFECT_CONFIG: dict[str, Any] = {
+    "blur": 8.587469069357562,
+    "brightness": 1,
+    "flip": True,
+    "gradient_name": "Sunset",
+    "gradient_roll": 4,
+    "mirror": False,
+    "gradient_repeat": 1,
+    "background_color": "white",
+}
 
 
-@pytest.mark.asyncio
-async def test_info(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """info test"""
+def _client(hass: HomeAssistant, auth: BasicAuth | None = None) -> LedFxClient:
+    """Build a client for the mock address."""
 
-    httpx_mock.add_response(text=load_fixture("info_data.json"), method=Method.GET)
-
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
+    return LedFxClient(
+        async_get_clientsession(hass), f"{MOCK_IP_ADDRESS}/", MOCK_PORT, auth
     )
 
-    assert await client.info() == json.loads(load_fixture("info_data.json"))
 
-    request: Request | None = httpx_mock.get_request(method=Method.GET)
-    assert request is not None
-    assert request.url == get_url("info")
-    assert request.method == Method.GET
+def _last_call(aioclient_mock: AiohttpClientMocker) -> tuple[str, str, Any]:
+    """Return method, url and body of the last request."""
 
+    method, url, body, _ = aioclient_mock.mock_calls[-1]
 
-@pytest.mark.asyncio
-async def test_devices(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """devices test"""
-
-    httpx_mock.add_response(text=load_fixture("devices_data.json"), method=Method.GET)
-
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
-    )
-
-    assert await client.devices() == json.loads(load_fixture("devices_data.json"))
-
-    request: Request | None = httpx_mock.get_request(method=Method.GET)
-    assert request is not None
-    assert request.url == get_url("devices")
-    assert request.method == Method.GET
+    return method, str(url), body
 
 
-@pytest.mark.asyncio
-async def test_scenes(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """scenes test"""
+@pytest.mark.parametrize(
+    ("call", "path", "fixture"),
+    [
+        ("info", "info", "info_data.json"),
+        ("devices", "devices", "devices_data.json"),
+        ("virtuals", "virtuals", "virtuals_data.json"),
+        ("scenes", "scenes", "scenes_data.json"),
+        ("audio_devices", "audio/devices", "audio_devices_data.json"),
+        ("schema", "schema", "schema_data.json"),
+        ("config", "config", "config_data.json"),
+        ("config", "config", "config_v2_data.json"),
+        ("colors", "colors", "colors_data.json"),
+    ],
+)
+async def test_get(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    call: str,
+    path: str,
+    fixture: str,
+) -> None:
+    """GET endpoints return the decoded body."""
 
-    httpx_mock.add_response(text=load_fixture("scenes_data.json"), method=Method.GET)
+    aioclient_mock.get(get_url(path), text=load_fixture(fixture))
 
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
-    )
+    assert await getattr(_client(hass), call)() == json.loads(load_fixture(fixture))
 
-    assert await client.scenes() == json.loads(load_fixture("scenes_data.json"))
-
-    request: Request | None = httpx_mock.get_request(method=Method.GET)
-    assert request is not None
-    assert request.url == get_url("scenes")
-    assert request.method == Method.GET
-
-
-@pytest.mark.asyncio
-async def test_audio_devices(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """audio devices test"""
-
-    httpx_mock.add_response(
-        text=load_fixture("audio_devices_data.json"), method=Method.GET
-    )
-
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
-    )
-
-    assert await client.audio_devices() == json.loads(
-        load_fixture("audio_devices_data.json")
-    )
-
-    request: Request | None = httpx_mock.get_request(method=Method.GET)
-    assert request is not None
-    assert request.url == get_url("audio/devices")
-    assert request.method == Method.GET
+    assert _last_call(aioclient_mock)[:2] == (Method.GET.value, get_url(path))
 
 
-@pytest.mark.asyncio
-async def test_schema(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """schema test"""
+@pytest.mark.parametrize("is_virtual", [False, True])
+async def test_device_on(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, is_virtual: bool
+) -> None:
+    """Device on posts the effect."""
 
-    httpx_mock.add_response(text=load_fixture("schema_data.json"), method=Method.GET)
+    prefix: str = "virtuals" if is_virtual else "devices"
+    url: str = get_url(f"{prefix}/{MOCK_DEVICE}/effects")
+    aioclient_mock.post(url, text=load_fixture("device_on_data.json"))
 
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
-    )
+    assert await _client(hass).device_on(
+        MOCK_DEVICE, "wavelength(Reactive)", is_virtual
+    ) == json.loads(load_fixture("device_on_data.json"))
 
-    assert await client.schema() == json.loads(load_fixture("schema_data.json"))
-
-    request: Request | None = httpx_mock.get_request(method=Method.GET)
-    assert request is not None
-    assert request.url == get_url("schema")
-    assert request.method == Method.GET
-
-
-@pytest.mark.asyncio
-async def test_config(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """config test"""
-
-    httpx_mock.add_response(text=load_fixture("config_data.json"), method=Method.GET)
-
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
-    )
-
-    assert await client.config() == json.loads(load_fixture("config_data.json"))
-
-    request: Request | None = httpx_mock.get_request(method=Method.GET)
-    assert request is not None
-    assert request.url == get_url("config")
-    assert request.method == Method.GET
+    method, _url, body = _last_call(aioclient_mock)
+    assert (method, _url) == (Method.POST.value, url)
+    assert body == {"config": {"active": True}, "type": "wavelength(Reactive)"}
 
 
-@pytest.mark.asyncio
-async def test_device_on(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """device on test"""
+@pytest.mark.parametrize("is_virtual", [False, True])
+async def test_device_off(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, is_virtual: bool
+) -> None:
+    """Device off deletes the effect."""
 
-    httpx_mock.add_response(
-        text=load_fixture("device_on_data.json"), method=Method.POST
-    )
+    prefix: str = "virtuals" if is_virtual else "devices"
+    url: str = get_url(f"{prefix}/{MOCK_DEVICE}/effects")
+    aioclient_mock.delete(url, text=load_fixture("device_off_data.json"))
 
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
-    )
-
-    assert await client.device_on(MOCK_DEVICE, "wavelength(Reactive)") == json.loads(
-        load_fixture("device_on_data.json")
-    )
-
-    request: Request | None = httpx_mock.get_request(method=Method.POST)
-    assert request is not None
-    assert request.url == get_url(f"devices/{MOCK_DEVICE}/effects")
-    assert (
-        request.content
-        == b'{"config": {"active": true}, "type": "wavelength(Reactive)"}'
-    )
-    assert request.method == Method.POST
-
-
-@pytest.mark.asyncio
-async def test_device_off(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """device off test"""
-
-    httpx_mock.add_response(
-        text=load_fixture("device_off_data.json"), method=Method.DELETE
-    )
-
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
-    )
-
-    assert await client.device_off(MOCK_DEVICE) == json.loads(
+    assert await _client(hass).device_off(MOCK_DEVICE, is_virtual) == json.loads(
         load_fixture("device_off_data.json")
     )
 
-    request: Request | None = httpx_mock.get_request(method=Method.DELETE)
-    assert request is not None
-    assert request.url == get_url(f"devices/{MOCK_DEVICE}/effects")
-    assert request.method == Method.DELETE
+    assert _last_call(aioclient_mock)[:2] == (Method.DELETE.value, url)
 
 
-@pytest.mark.asyncio
-async def test_preset(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """preset test"""
+@pytest.mark.parametrize(
+    ("is_virtual", "category", "expected_category"),
+    [
+        (False, "default_presets", "default_presets"),
+        (False, "custom_presets", "custom_presets"),
+        (True, "default_presets", "ledfx_presets"),
+        (True, "custom_presets", "user_presets"),
+    ],
+)
+async def test_preset(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    is_virtual: bool,
+    category: str,
+    expected_category: str,
+) -> None:
+    """Presets use the category names of the configuration version in use."""
 
-    httpx_mock.add_response(text=load_fixture("preset_data.json"), method=Method.PUT)
+    prefix: str = "virtuals" if is_virtual else "devices"
+    url: str = get_url(f"{prefix}/{MOCK_DEVICE}/presets")
+    aioclient_mock.put(url, text=load_fixture("preset_data.json"))
 
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
-    )
-
-    assert await client.preset(
-        MOCK_DEVICE, "default_presets", "wavelength(Reactive)", "sunset-sweep"
+    assert await _client(hass).preset(
+        MOCK_DEVICE, category, "wavelength(Reactive)", "sunset-sweep", is_virtual
     ) == json.loads(load_fixture("preset_data.json"))
 
-    request: Request | None = httpx_mock.get_request(method=Method.PUT)
-    assert request is not None
-    assert request.url == get_url(f"devices/{MOCK_DEVICE}/presets")
-    assert (
-        request.content
-        == b'{"category": "default_presets", "effect_id": "wavelength(Reactive)", "preset_id": "sunset-sweep"}'
-    )
-    assert request.method == Method.PUT
+    method, _url, body = _last_call(aioclient_mock)
+    assert (method, _url) == (Method.PUT.value, url)
+    assert body == {
+        "category": expected_category,
+        "effect_id": "wavelength(Reactive)",
+        "preset_id": "sunset-sweep",
+    }
 
 
-@pytest.mark.asyncio
-async def test_effect(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """effect test"""
+@pytest.mark.parametrize("is_virtual", [False, True])
+async def test_effect(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, is_virtual: bool
+) -> None:
+    """Effect updates put the new config."""
 
-    httpx_mock.add_response(text=load_fixture("effect_data.json"), method=Method.PUT)
+    prefix: str = "virtuals" if is_virtual else "devices"
+    url: str = get_url(f"{prefix}/{MOCK_DEVICE}/effects")
+    aioclient_mock.put(url, text=load_fixture("effect_data.json"))
 
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
-    )
-
-    assert await client.effect(
-        MOCK_DEVICE,
-        "wavelength(Reactive)",
-        {
-            "blur": 8.587469069357562,
-            "brightness": 1,
-            "flip": True,
-            "gradient_name": "Sunset",
-            "gradient_roll": 4,
-            "mirror": False,
-            "gradient_repeat": 1,
-            "background_color": "white",
-        },
+    assert await _client(hass).effect(
+        MOCK_DEVICE, "wavelength(Reactive)", EFFECT_CONFIG, is_virtual
     ) == json.loads(load_fixture("effect_data.json"))
 
-    request: Request | None = httpx_mock.get_request(method=Method.PUT)
-    assert request is not None
-    assert request.url == get_url(f"devices/{MOCK_DEVICE}/effects")
-    assert (
-        request.content
-        == b'{"config": {"blur": 8.587469069357562, "brightness": 1, "flip": true, "gradient_name": "Sunset", "gradient_roll": 4, "mirror": false, "gradient_repeat": 1, "background_color": "white"}, "type": "wavelength(Reactive)"}'
+    method, _url, body = _last_call(aioclient_mock)
+    assert (method, _url) == (Method.PUT.value, url)
+    assert body == {"config": EFFECT_CONFIG, "type": "wavelength(Reactive)"}
+
+
+async def test_set_audio_device(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Audio device selection uses the endpoint of the API version."""
+
+    aioclient_mock.put(
+        get_url("audio/devices"), text=load_fixture("set_audio_device_data.json")
     )
-    assert request.method == Method.PUT
+    aioclient_mock.put(get_url("config"), text=load_fixture("set_audio_device_data.json"))
 
+    client: LedFxClient = _client(hass)
 
-@pytest.mark.asyncio
-async def test_set_audio_device(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """set_audio_device test"""
-
-    httpx_mock.add_response(
-        text=load_fixture("set_audio_device_data.json"), method=Method.PUT
-    )
-
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
-    )
-
-    assert await client.set_audio_device(0) == json.loads(
-        load_fixture("set_audio_device_data.json")
+    await client.set_audio_device(0)
+    assert _last_call(aioclient_mock) == (
+        Method.PUT.value,
+        get_url("audio/devices"),
+        {"index": 0},
     )
 
-    request: Request | None = httpx_mock.get_request(method=Method.PUT)
-    assert request is not None
-    assert request.url == get_url("audio/devices")
-    assert request.content == b'{"index": 0}'
-    assert request.method == Method.PUT
-
-
-@pytest.mark.asyncio
-async def test_run_scene(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
-    """run_scene test"""
-
-    httpx_mock.add_response(text=load_fixture("run_scene_data.json"), method=Method.PUT)
-
-    client: LedFxClient = LedFxClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", MOCK_PORT
+    await client.set_audio_device(2, True)
+    assert _last_call(aioclient_mock) == (
+        Method.PUT.value,
+        get_url("config"),
+        {"audio": {"audio_device": 2}},
     )
 
-    assert await client.run_scene("test") == json.loads(
+
+async def test_run_scene(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Scenes are activated by id."""
+
+    aioclient_mock.put(get_url("scenes"), text=load_fixture("run_scene_data.json"))
+
+    assert await _client(hass).run_scene("test") == json.loads(
         load_fixture("run_scene_data.json")
     )
 
-    request: Request | None = httpx_mock.get_request(method=Method.PUT)
-    assert request is not None
-    assert request.url == get_url("scenes")
-    assert request.content == b'{"action": "activate", "id": "test"}'
-    assert request.method == Method.PUT
+    assert _last_call(aioclient_mock) == (
+        Method.PUT.value,
+        get_url("scenes"),
+        {"action": "activate", "id": "test"},
+    )
+
+
+async def test_toggle_play_pause(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The global pause toggle is a bodyless PUT on the virtuals endpoint."""
+
+    aioclient_mock.put(
+        get_url("virtuals"), json={"status": "success", "paused": True}
+    )
+
+    assert await _client(hass).toggle_play_pause() == {
+        "status": "success",
+        "paused": True,
+    }
+
+    assert _last_call(aioclient_mock) == (Method.PUT.value, get_url("virtuals"), None)
+
+
+async def test_ipv6_host(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """IPv6 literals are bracketed in the request URL."""
+
+    url: str = f"http://[fd00::1]:{MOCK_PORT}/api/scenes"
+    aioclient_mock.get(url, text=load_fixture("scenes_data.json"))
+
+    client: LedFxClient = LedFxClient(
+        async_get_clientsession(hass), "fd00::1", MOCK_PORT
+    )
+
+    await client.scenes()
+
+    assert _last_call(aioclient_mock)[1] == url
+
+
+async def test_basic_auth(hass: HomeAssistant) -> None:
+    """Basic auth credentials are passed to the aiohttp request."""
+
+    session = MagicMock()
+    session.request.return_value.__aenter__.return_value = AsyncMock(
+        status=200,
+        read=AsyncMock(return_value=load_fixture("scenes_data.json").encode()),
+    )
+
+    auth: BasicAuth = BasicAuth("user", "pass")
+
+    await LedFxClient(session, MOCK_IP_ADDRESS, MOCK_PORT, auth).scenes()
+
+    assert session.request.call_args.kwargs["auth"] == auth
+
+
+async def test_connection_error(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Transport failures raise a connection error and are recorded."""
+
+    aioclient_mock.get(get_url("scenes"), exc=TimeoutError)
+
+    client: LedFxClient = _client(hass)
+
+    with pytest.raises(LedFxConnectionError):
+        await client.scenes()
+
+    assert client.diagnostics["scenes"]["message"] == "Connection error"
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"text": "not json"},
+        {"text": "[]"},
+        {"json": {"status": "failed", "payload": {"type": "error"}}},
+        {"json": {"scenes": {}}},
+    ],
+)
+async def test_request_error(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, response: dict
+) -> None:
+    """Responses that are not a success payload are rejected."""
+
+    aioclient_mock.get(get_url("scenes"), **response)
+
+    with pytest.raises((LedFxRequestError, LedFxConnectionError)):
+        await _client(hass).scenes()
+
+
+@pytest.mark.parametrize("status", [401, 403])
+async def test_authentication_error(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, status: int
+) -> None:
+    """An authentication failure is a request error, not a connection error."""
+
+    aioclient_mock.get(get_url("scenes"), status=status, text="denied")
+
+    with pytest.raises(LedFxRequestError):
+        await _client(hass).scenes()

@@ -1,7 +1,11 @@
 """LedFx API client exceptions."""
 
+from __future__ import annotations
 
-class LedFxError(BaseException):
+from homeassistant.exceptions import HomeAssistantError
+
+
+class LedFxError(HomeAssistantError):
     """LedFx error"""
 
 

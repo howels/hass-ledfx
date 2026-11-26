@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 import logging
+from http import HTTPStatus
 from typing import Any
 
+from aiohttp import BasicAuth
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_integration
 from homeassistant.util import slugify
-from httpx import USE_CLIENT_DEFAULT, codes
 
+from .client import LedFxClient
 from .const import DEFAULT_TIMEOUT, DOMAIN
-from .enum import EffectCategory
-from .updater import LedFxUpdater
+from .enums import EffectCategory
+from .exceptions import LedFxConnectionError, LedFxRequestError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,7 +47,7 @@ async def async_verify_access(  # pylint: disable=too-many-arguments
     username: str | None,
     password: str | None,
     timeout: int = DEFAULT_TIMEOUT,
-) -> codes:
+) -> HTTPStatus:
     """Verify authentication data.
 
     :param hass: HomeAssistant: Home Assistant object
@@ -53,22 +56,25 @@ async def async_verify_access(  # pylint: disable=too-many-arguments
     :param username: str | None: Basic auth username
     :param password: str | None: Basic auth password
     :param timeout: int: Timeout
-    :return int: last update success
+    :return HTTPStatus: OK, FORBIDDEN (rejected request) or NOT_FOUND (unreachable)
     """
 
-    updater = LedFxUpdater(
-        hass=hass,
-        ip=ip,
-        port=port,
-        auth=build_auth(username, password),
-        timeout=timeout,
-        is_only_check=True,
+    client: LedFxClient = LedFxClient(
+        async_get_clientsession(hass),
+        ip,
+        port,
+        build_auth(username, password),
+        timeout,
     )
 
-    await updater.async_request_refresh()
-    await updater.async_stop()
+    try:
+        await client.config()
+    except LedFxConnectionError:
+        return HTTPStatus.NOT_FOUND
+    except LedFxRequestError:
+        return HTTPStatus.FORBIDDEN
 
-    return updater.code
+    return HTTPStatus.OK
 
 
 async def async_get_version(hass: HomeAssistant) -> str:
@@ -83,18 +89,18 @@ async def async_get_version(hass: HomeAssistant) -> str:
     return f"{integration.version}"
 
 
-def build_auth(username: str | None, password: str | None) -> Any:
+def build_auth(username: str | None, password: str | None) -> BasicAuth | None:
     """Build basic auth data
 
     :param username: Username
     :param password: Password
-    :return Any
+    :return BasicAuth | None
     """
 
     if username is None or password is None:
-        return USE_CLIENT_DEFAULT
+        return None
 
-    return (username, password)
+    return BasicAuth(username, password)
 
 
 def clean_flow_user_input(user_input: dict, supports_basic_auth: bool = False) -> dict:
@@ -185,17 +191,23 @@ def find_effect(
 
 def hex_to_rgbw(
     color: str | None,
-) -> tuple[int, int, int, int] | None:  # pragma: no cover
+) -> tuple[int, int, int, int] | None:
     """Convert hex color to rgbw
 
     :param color: str | None
-    :return tuple[int, int, int, int] | None
+    :return tuple[int, int, int, int] | None: None for a missing or unparsable value
     """
 
-    if not color:
+    if not color or not isinstance(color, str):
         return None
 
-    color = color.lstrip("#")
+    color = color.lstrip("#").lower()
+
+    if len(color) == 3:
+        color = "".join(char * 2 for char in color)
+
+    if len(color) != 6:
+        return None
 
     if color == "ffffff":
         return 0, 0, 0, 255
@@ -203,7 +215,15 @@ def hex_to_rgbw(
     if color == "000000":
         return 0, 0, 0, 0
 
-    return tuple([int(color[i : i + 2], 16) for i in (0, 2, 4)] + [0])  # type: ignore
+    try:
+        return (
+            int(color[0:2], 16),
+            int(color[2:4], 16),
+            int(color[4:6], 16),
+            0,
+        )
+    except ValueError:
+        return None
 
 
 def rgbw_to_hex(color: tuple[int, int, int, int] | None) -> str | None:
