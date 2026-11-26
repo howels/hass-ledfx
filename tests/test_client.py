@@ -282,6 +282,32 @@ async def test_no_credentials_sends_no_header(hass: HomeAssistant) -> None:
     assert session.request.call_args.kwargs["headers"] is None
 
 
+async def test_playlists(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The playlists endpoint returns a bare payload."""
+
+    aioclient_mock.get(get_url("playlists"), json={"playlists": {"a": {"name": "A"}}})
+
+    assert await _client(hass).playlists() == {"playlists": {"a": {"name": "A"}}}
+
+
+async def test_set_config(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Config keys go to the config endpoint as the request body."""
+
+    aioclient_mock.put(get_url("config"), json={"status": "success"})
+
+    await _client(hass).set_config({"startup_scene_id": "test"})
+
+    assert _last_call(aioclient_mock) == (
+        Method.PUT.value,
+        get_url("config"),
+        {"startup_scene_id": "test"},
+    )
+
+
 async def test_failure_reason(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:

@@ -25,6 +25,8 @@ from .const import (
     ATTR_LIGHT_STATE,
     ATTR_SELECT_AUDIO_INPUT,
     ATTR_SELECT_AUDIO_INPUT_OPTIONS,
+    ATTR_STARTUP_PLAYLIST_ID,
+    ATTR_STARTUP_SCENE_ID,
     ATTR_STATE,
     SELECT_ICONS,
     SIGNAL_NEW_SELECT,
@@ -249,6 +251,43 @@ class LedFxSelect(LedFxEntity, SelectEntity):
                 _LOGGER.debug("Audio input update error: %r", _e)
 
         return False
+
+    async def _set_startup(self, config_key: str, option: str) -> bool:
+        """Store a startup scene or playlist in the LedFx configuration.
+
+        :param config_key: str: LedFx configuration key
+        :param option: str: Option label
+        :return bool: Result
+        """
+
+        options: dict = self._updater.data.get(self._options_key, {})
+
+        if not (option_ids := [_id for _id, name in options.items() if name == option]):
+            return False
+
+        await self._updater.client.set_config({config_key: option_ids[0]})
+
+        self._updater.data[config_key] = option_ids[0]
+
+        return True
+
+    async def _startup_scene_change(self, option: str) -> bool:
+        """Startup scene
+
+        :param option: str: Option value
+        :return bool: Result
+        """
+
+        return await self._set_startup(ATTR_STARTUP_SCENE_ID, option)
+
+    async def _startup_playlist_change(self, option: str) -> bool:
+        """Startup playlist
+
+        :param option: str: Option value
+        :return bool: Result
+        """
+
+        return await self._set_startup(ATTR_STARTUP_PLAYLIST_ID, option)
 
     async def _device_change(self, option: str) -> bool:
         """Device input

@@ -42,6 +42,10 @@ from .const import (
     ATTR_PAUSED,
     ATTR_SELECT_AUDIO_INPUT,
     ATTR_SELECT_AUDIO_INPUT_OPTIONS,
+    ATTR_STARTUP_PLAYLIST,
+    ATTR_STARTUP_PLAYLIST_ID,
+    ATTR_STARTUP_SCENE,
+    ATTR_STARTUP_SCENE_ID,
     ATTR_STATE,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SSL,
@@ -56,6 +60,7 @@ from .const import (
     SIGNAL_NEW_SELECT,
     SIGNAL_NEW_SENSOR,
     SIGNAL_NEW_SWITCH,
+    STARTUP_NONE_OPTION,
 )
 from .enums import ActionType, Version
 from .exceptions import LedFxConnectionError, LedFxError, LedFxRequestError
@@ -69,6 +74,8 @@ PREPARE_METHODS: Final = (
     "devices",
     "audio_devices",
     "scenes",
+    "playlists",
+    "extras",
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -152,6 +159,8 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
         self.gradients: dict = {}
 
         self._virtuals: dict = {}
+        self._scene_names: dict[str, str] = {}
+        self._playlist_names: dict[str, str] = {}
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Update LedFx information.
@@ -460,6 +469,8 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
                 elif code not in ("device_index", "audio_device_name"):
                     self._prepare_audio_sensor(data, code, value)
 
+        self._prepare_extra_config(data, response)
+
         if response.get("ledfx_presets"):
             data[ATTR_LIGHT_DEFAULT_PRESETS] = {
                 effect: sorted(list(presets.keys()))
@@ -472,6 +483,18 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
                 for effect, presets in response["user_presets"].items()
             }
 
+    def _prepare_extra_config(self, data: dict, response: dict) -> None:
+        """Store the startup settings of a version 2 configuration.
+
+        :param data: dict
+        :param response: dict
+        """
+
+        for key in (ATTR_STARTUP_SCENE_ID, ATTR_STARTUP_PLAYLIST_ID):
+            if key in response:
+                data[key] = str(response[key] or "")
+            else:
+                data.pop(key, None)
     def _prepare_audio_sensor(self, data: dict, code: str, value: Any) -> None:
         """Store an audio setting and create a diagnostic sensor for it.
 
@@ -755,6 +778,12 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
 
         response: dict = await self.client.scenes()
 
+        self._scene_names = {
+            str(code): str(scene.get("name") or code)
+            for code, scene in (response.get("scenes") or {}).items()
+            if isinstance(scene, dict)
+        }
+
         if "scenes" in response and response["scenes"]:
             for code, scene in response["scenes"].items():
                 if code in self.buttons:
@@ -776,6 +805,67 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
                         self.hass, SIGNAL_NEW_BUTTON, self.buttons[code]
                     )
 
+    async def _async_prepare_playlists(self, data: dict) -> None:
+        """Prepare playlists.
+
+        Only LedFx versions that report a startup playlist have the endpoint.
+
+        :param data: dict
+        """
+
+        if ATTR_STARTUP_PLAYLIST_ID not in data:
+            self._playlist_names = {}
+
+            return
+
+        response: dict = await self.client.playlists()
+
+        self._playlist_names = {
+            str(code): str(playlist.get("name") or code)
+            if isinstance(playlist, dict)
+            else str(code)
+            for code, playlist in (response.get("playlists") or {}).items()
+        }
+
+    async def _async_prepare_extras(self, data: dict) -> None:
+        """Prepare the startup selects.
+
+        :param data: dict
+        """
+
+        for key, id_key, names in (
+            (ATTR_STARTUP_SCENE, ATTR_STARTUP_SCENE_ID, self._scene_names),
+            (ATTR_STARTUP_PLAYLIST, ATTR_STARTUP_PLAYLIST_ID, self._playlist_names),
+        ):
+            if id_key not in data:
+                continue
+
+            options: dict[str, str] = startup_options(names)
+
+            data[f"{key}_options"] = options
+            data[key] = options.get(data[id_key])
+
+            if key in self.selects:
+                continue
+
+            self.selects[key] = LedFxEntityDescription(
+                description=SelectEntityDescription(
+                    key=key,
+                    translation_key=key,
+                    icon="mdi:image-play"
+                    if key == ATTR_STARTUP_SCENE
+                    else "mdi:playlist-play",
+                    entity_category=EntityCategory.CONFIG,
+                    entity_registry_enabled_default=True,
+                ),
+                device_info=self.device_info,
+            )
+
+            if self.new_select_callback:
+                async_dispatcher_send(
+                    self.hass, SIGNAL_NEW_SELECT, self.selects[key]
+                )
+
 
 @dataclass
 class LedFxEntityDescription:
@@ -786,6 +876,24 @@ class LedFxEntityDescription:
     device_code: str | None = None
     type: ActionType = ActionType.DEFAULT
     extra: dict | None = None
+
+
+def startup_options(names: dict[str, str]) -> dict[str, str]:
+    """Build the select options of a startup scene or playlist.
+
+    The empty id means that LedFx starts nothing. A name that another entry
+    already uses carries its id so that every option stays unique.
+
+    :param names: dict[str, str]: Names by id
+    :return dict[str, str]: Option labels by id, in display order
+    """
+
+    options: dict[str, str] = {"": STARTUP_NONE_OPTION}
+
+    for code, name in sorted(names.items(), key=lambda item: item[1].casefold()):
+        options[code] = f"{name} ({code})" if name in options.values() else name
+
+    return options
 
 
 def convert_brightness(brightness: float, is_reverse: bool = False) -> float:

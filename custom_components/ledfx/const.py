@@ -59,6 +59,13 @@ ATTR_FIELD_TYPE: Final = "type"
 ATTR_FIELD_EFFECTS: Final = "effects"
 ATTR_FIELD_OPTIONS: Final = "options"
 
+"""Startup attributes"""
+ATTR_STARTUP_SCENE: Final = "startup_scene"
+ATTR_STARTUP_SCENE_ID: Final = "startup_scene_id"
+ATTR_STARTUP_PLAYLIST: Final = "startup_playlist"
+ATTR_STARTUP_PLAYLIST_ID: Final = "startup_playlist_id"
+STARTUP_NONE_OPTION: Final = "None"
+
 """Select attributes"""
 ATTR_SELECT_AUDIO_INPUT: Final = "audio_input"
 ATTR_SELECT_AUDIO_INPUT_NAME: Final = "Audio input"

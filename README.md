@@ -42,6 +42,17 @@ To connect, enter the ip address and port. And also if you use basic auth, enter
 
 ❗ Via YAML (legacy way) not supported
 
+## LedFx settings
+
+LedFx configuration version 2 reports further settings. The integration creates an entity only for a setting that LedFx reports.
+
+| Entity | Type | Effect |
+|---|---|---|
+| Startup scene | select | Sets `startup_scene_id`. LedFx activates that scene when it starts. `None` activates no scene. |
+| Startup playlist | select | Sets `startup_playlist_id`. LedFx starts that playlist when it starts. `None` starts no playlist. |
+
+Neither startup setting restarts LedFx.
+
 ## Performance
 ![](/images/performance.gif)
 

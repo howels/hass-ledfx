@@ -224,6 +224,14 @@ class LedFxClient:
             "config", validate_field=("config", "configuration_version")
         )
 
+    async def playlists(self) -> dict:
+        """playlists method.
+
+        :return dict: dict with api data.
+        """
+
+        return await self.request("playlists", validate_field="playlists")
+
     async def colors(self) -> dict:
         """colors method.
 
@@ -326,6 +334,15 @@ class LedFxClient:
             )
 
         return await self.request("audio/devices", Method.PUT, {"index": index})
+
+    async def set_config(self, patch: dict) -> dict:
+        """config set method.
+
+        :param patch: dict: Core configuration keys to change
+        :return dict: dict with api data.
+        """
+
+        return await self.request("config", Method.PUT, patch)
 
     async def toggle_play_pause(self) -> dict:
         """virtuals pause toggle method.

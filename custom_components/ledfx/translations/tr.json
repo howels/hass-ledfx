@@ -55,6 +55,12 @@
     "select": {
       "audio_input": {
         "name": "Ses girişi"
+      },
+      "startup_scene": {
+        "name": "Başlangıç sahnesi"
+      },
+      "startup_playlist": {
+        "name": "Başlangıç oynatma listesi"
       }
     },
     "media_player": {

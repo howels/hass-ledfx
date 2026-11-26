@@ -55,6 +55,12 @@
     "select": {
       "audio_input": {
         "name": "Аудиовход"
+      },
+      "startup_scene": {
+        "name": "Сцена при запуске"
+      },
+      "startup_playlist": {
+        "name": "Плейлист при запуске"
       }
     },
     "media_player": {
