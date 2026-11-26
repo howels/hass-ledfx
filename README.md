@@ -6,7 +6,8 @@
 Component for deep integration [LedFx](https://github.com/LedFx/LedFx) from [Home Assistant](https://www.home-assistant.io/).
 
 ## Requirements
-* LedFx version >= [0.10.7](https://github.com/LedFx/LedFx/releases/tag/v0.10.7)
+* Home Assistant 2025.1.0 or later. Tested against 2025.1, 2026.2, 2026.11 and the 2026.12 beta.
+* LedFx version >= [0.10.7](https://github.com/LedFx/LedFx/releases/tag/v0.10.7). The integration reads the configuration version from `/api/config` and uses the 0.10.x API or the 2.x API accordingly. Verified against the LedFx 2.2.1 source.
 
 ## Important information
 * ❗ Effect controls (number, switch, select) are disabled by default. They must be enabled manually.

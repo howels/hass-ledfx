@@ -5,13 +5,10 @@
     "@dmamontov"
   ],
   "config_flow": true,
-  "dependencies": [
-    "http"
-  ],
-  "documentation": "https://github.com/dmamontov/hass-ledfx/wiki",
+  "documentation": "https://github.com/Anto79-ops/hass-ledfx",
+  "integration_type": "service",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/dmamontov/hass-ledfx/issues",
-  "quality_scale": "platinum",
+  "issue_tracker": "https://github.com/Anto79-ops/hass-ledfx/issues",
   "requirements": [],
-  "version": "3.0.0"
+  "version": "3.1.0"
 }
