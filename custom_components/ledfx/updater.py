@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import timedelta
 from functools import cached_property
@@ -15,7 +16,9 @@ from homeassistant.components.number import NumberEntityDescription
 from homeassistant.components.select import SelectEntityDescription
 from homeassistant.components.sensor import SensorEntityDescription, SensorStateClass
 from homeassistant.components.switch import SwitchDeviceClass, SwitchEntityDescription
+from homeassistant.components.text import TextEntityDescription
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import MAX_LENGTH_STATE_STATE
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
@@ -63,6 +66,7 @@ from .const import (
     SIGNAL_NEW_SELECT,
     SIGNAL_NEW_SENSOR,
     SIGNAL_NEW_SWITCH,
+    SIGNAL_NEW_TEXT,
     STARTUP_NONE_OPTION,
 )
 from .enums import ActionType, Version
@@ -101,6 +105,7 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
     new_select_callback: CALLBACK_TYPE | None = None
     new_sensor_callback: CALLBACK_TYPE | None = None
     new_switch_callback: CALLBACK_TYPE | None = None
+    new_text_callback: CALLBACK_TYPE | None = None
 
     def __init__(
         self,
@@ -156,6 +161,7 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
         self.selects: dict[str, LedFxEntityDescription] = {}
         self.sensors: dict[str, LedFxEntityDescription] = {}
         self.switches: dict[str, LedFxEntityDescription] = {}
+        self.texts: dict[str, LedFxEntityDescription] = {}
 
         self.effect_properties: dict = {}
         self.colors: dict = {}
@@ -380,6 +386,24 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
                     entity_registry_enabled_default=False,
                 ),
                 "number",
+                None,
+            )
+
+        if entity_data.get("type") == "string" and not entity_data.get("enum"):
+            minimum, maximum = text_length_bounds(entity_data)
+
+            return (
+                TextEntityDescription(
+                    key=code,
+                    name=entity_data.get("title", code.replace("_", " ").title()),
+                    native_min=minimum,
+                    native_max=maximum,
+                    pattern=text_pattern(entity_data.get("pattern")),
+                    icon="mdi:format-text",
+                    entity_category=EntityCategory.CONFIG,
+                    entity_registry_enabled_default=False,
+                ),
+                "text",
                 None,
             )
 
@@ -754,6 +778,23 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
 
                 if self.new_switch_callback:
                     signal = SIGNAL_NEW_SWITCH
+            elif field_type == "text":
+                if f"{code}_{prop}" in self.texts:
+                    continue
+
+                field = self.texts[f"{code}_{prop}"] = LedFxEntityDescription(
+                    description=info[ATTR_FIELD],
+                    type=ActionType.DEVICE,
+                    device_info=device_info,
+                    device_code=code,
+                    extra={
+                        ATTR_FIELD_EFFECTS: sorted(info.get(ATTR_FIELD_EFFECTS, [])),
+                        ATTR_FIELD_TYPE: info.get(ATTR_FIELD_TYPE),
+                    },
+                )
+
+                if self.new_text_callback:
+                    signal = SIGNAL_NEW_TEXT
             elif field_type in ("select", "color"):
                 if f"{code}_{prop}" in self.selects:
                     continue
@@ -921,6 +962,48 @@ class LedFxEntityDescription:
     device_code: str | None = None
     type: ActionType = ActionType.DEFAULT
     extra: dict | None = None
+
+
+def text_length_bounds(entity_data: dict) -> tuple[int, int]:
+    """Return the character limits of a free-text effect field.
+
+    LedFx reports ``minLength`` and ``maxLength``. A missing or unusable value
+    falls back to the Home Assistant state length, and the result stays inside
+    that length.
+
+    :param entity_data: dict: Schema property
+    :return tuple[int, int]: Minimum and maximum length
+    """
+
+    def bounded(value: Any, default: int, lowest: int) -> int:
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            number = default
+
+        return min(max(number, lowest), MAX_LENGTH_STATE_STATE)
+
+    minimum: int = bounded(entity_data.get("minLength"), 0, 0)
+
+    return minimum, bounded(entity_data.get("maxLength"), MAX_LENGTH_STATE_STATE, minimum)
+
+
+def text_pattern(value: Any) -> str | None:
+    """Return a schema pattern when it is a compilable regular expression.
+
+    :param value: Any: Schema pattern
+    :return str | None: The pattern, or None when LedFx gives none or an invalid one
+    """
+
+    if not isinstance(value, str) or not value:
+        return None
+
+    try:
+        re.compile(value)
+    except re.error:
+        return None
+
+    return value
 
 
 def startup_options(names: dict[str, str]) -> dict[str, str]:
