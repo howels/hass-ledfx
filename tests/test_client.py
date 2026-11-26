@@ -9,7 +9,6 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from aiohttp import BasicAuth
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from pytest_homeassistant_custom_component.common import load_fixture
@@ -18,6 +17,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 from custom_components.ledfx.client import LedFxClient
 from custom_components.ledfx.enums import Method
 from custom_components.ledfx.exceptions import LedFxConnectionError, LedFxRequestError
+from custom_components.ledfx.helper import build_authorization
 from tests.setup import MOCK_DEVICE, MOCK_IP_ADDRESS, MOCK_PORT, get_url
 
 EFFECT_CONFIG: dict[str, Any] = {
@@ -32,11 +32,11 @@ EFFECT_CONFIG: dict[str, Any] = {
 }
 
 
-def _client(hass: HomeAssistant, auth: BasicAuth | None = None) -> LedFxClient:
+def _client(hass: HomeAssistant, authorization: str | None = None) -> LedFxClient:
     """Build a client for the mock address."""
 
     return LedFxClient(
-        async_get_clientsession(hass), f"{MOCK_IP_ADDRESS}/", MOCK_PORT, auth
+        async_get_clientsession(hass), f"{MOCK_IP_ADDRESS}/", MOCK_PORT, authorization
     )
 
 
@@ -248,7 +248,7 @@ async def test_ipv6_host(
 
 
 async def test_basic_auth(hass: HomeAssistant) -> None:
-    """Basic auth credentials are passed to the aiohttp request."""
+    """Basic auth credentials are sent in the Authorization header."""
 
     session = MagicMock()
     session.request.return_value.__aenter__.return_value = AsyncMock(
@@ -256,11 +256,30 @@ async def test_basic_auth(hass: HomeAssistant) -> None:
         read=AsyncMock(return_value=load_fixture("scenes_data.json").encode()),
     )
 
-    auth: BasicAuth = BasicAuth("user", "pass")
+    authorization: str | None = build_authorization("user", "pass")
 
-    await LedFxClient(session, MOCK_IP_ADDRESS, MOCK_PORT, auth).scenes()
+    assert authorization == "Basic dXNlcjpwYXNz"
 
-    assert session.request.call_args.kwargs["auth"] == auth
+    await LedFxClient(session, MOCK_IP_ADDRESS, MOCK_PORT, authorization).scenes()
+
+    assert session.request.call_args.kwargs["headers"] == {
+        "Authorization": "Basic dXNlcjpwYXNz"
+    }
+    assert "auth" not in session.request.call_args.kwargs
+
+
+async def test_no_credentials_sends_no_header(hass: HomeAssistant) -> None:
+    """A client without credentials sends no Authorization header."""
+
+    session = MagicMock()
+    session.request.return_value.__aenter__.return_value = AsyncMock(
+        status=200,
+        read=AsyncMock(return_value=load_fixture("scenes_data.json").encode()),
+    )
+
+    await LedFxClient(session, MOCK_IP_ADDRESS, MOCK_PORT).scenes()
+
+    assert session.request.call_args.kwargs["headers"] is None
 
 
 async def test_connection_error(

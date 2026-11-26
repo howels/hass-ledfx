@@ -9,7 +9,6 @@ from functools import cached_property
 from http import HTTPStatus
 from typing import Any, Final
 
-from aiohttp import BasicAuth
 from homeassistant.components.button import ButtonEntityDescription
 from homeassistant.components.light import LightEntityDescription
 from homeassistant.components.number import NumberEntityDescription
@@ -96,7 +95,7 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
         hass: HomeAssistant,
         ip: str,
         port: str,
-        auth: BasicAuth | None = None,
+        authorization: str | None = None,
         scan_interval: int = DEFAULT_SCAN_INTERVAL,
         timeout: int = DEFAULT_TIMEOUT,
         config_entry: ConfigEntry | None = None,
@@ -106,7 +105,7 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
         :param hass: HomeAssistant: Home Assistant object
         :param ip: str: ip address
         :param port: str: port
-        :param auth: BasicAuth | None: Basic auth
+        :param authorization: str | None: Value of the Authorization header
         :param scan_interval: int: Update interval
         :param timeout: int: Query execution timeout
         :param config_entry: ConfigEntry | None: Config entry that owns the updater
@@ -116,7 +115,7 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
             async_get_clientsession(hass),
             ip,
             port,
-            auth,
+            authorization,
             timeout,
         )
 

@@ -16,7 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry
 
 from .const import DEFAULT_SCAN_INTERVAL, DEFAULT_TIMEOUT, DOMAIN, PLATFORMS
-from .helper import build_auth, get_config_value
+from .helper import build_authorization, get_config_value
 from .updater import LedFxConfigEntry, LedFxUpdater
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LedFxConfigEntry) -> boo
         hass,
         get_config_value(entry, CONF_IP_ADDRESS),
         get_config_value(entry, CONF_PORT),
-        build_auth(
+        build_authorization(
             get_config_value(entry, CONF_USERNAME),
             get_config_value(entry, CONF_PASSWORD),
         ),

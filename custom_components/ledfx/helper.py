@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
+from base64 import b64encode
 from http import HTTPStatus
 from typing import Any
 
-from aiohttp import BasicAuth
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
@@ -63,7 +63,7 @@ async def async_verify_access(  # pylint: disable=too-many-arguments
         async_get_clientsession(hass),
         ip,
         port,
-        build_auth(username, password),
+        build_authorization(username, password),
         timeout,
     )
 
@@ -89,18 +89,23 @@ async def async_get_version(hass: HomeAssistant) -> str:
     return f"{integration.version}"
 
 
-def build_auth(username: str | None, password: str | None) -> BasicAuth | None:
-    """Build basic auth data
+def build_authorization(username: str | None, password: str | None) -> str | None:
+    """Build the Authorization header value for HTTP basic authentication.
+
+    aiohttp deprecates `BasicAuth` and removes it in aiohttp 4.0, so the header
+    is encoded here instead.
 
     :param username: Username
     :param password: Password
-    :return BasicAuth | None
+    :return str | None: `Basic <credentials>` or None without credentials
     """
 
     if username is None or password is None:
         return None
 
-    return BasicAuth(username, password)
+    credentials: str = b64encode(f"{username}:{password}".encode()).decode("ascii")
+
+    return f"Basic {credentials}"
 
 
 def clean_flow_user_input(user_input: dict, supports_basic_auth: bool = False) -> dict:

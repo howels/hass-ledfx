@@ -8,7 +8,7 @@ from datetime import datetime
 from http import HTTPStatus
 from typing import Any
 
-from aiohttp import BasicAuth, ClientError, ClientSession, ClientTimeout
+from aiohttp import ClientError, ClientSession, ClientTimeout
 
 from .const import (
     CLIENT_URL,
@@ -38,7 +38,7 @@ class LedFxClient:
     port: str
 
     _session: ClientSession
-    _auth: BasicAuth | None = None
+    _authorization: str | None = None
     _timeout: int = DEFAULT_TIMEOUT
 
     _url: str
@@ -48,7 +48,7 @@ class LedFxClient:
         session: ClientSession,
         ip: str,  # pylint: disable=invalid-name
         port: str,
-        auth: BasicAuth | None = None,
+        authorization: str | None = None,
         timeout: int = DEFAULT_TIMEOUT,
     ) -> None:
         """Initialize API client.
@@ -56,7 +56,7 @@ class LedFxClient:
         :param session: ClientSession: aiohttp session
         :param ip: str: ip address or host name
         :param port: str: port
-        :param auth: BasicAuth | None: auth data
+        :param authorization: str | None: Value of the Authorization header
         :param timeout: int: Query execution timeout
         """
 
@@ -64,7 +64,7 @@ class LedFxClient:
         self._session = session
         self.ip = ip  # pylint: disable=invalid-name
         self.port = port
-        self._auth = auth
+        self._authorization = authorization
         self._timeout = timeout
 
         host: str = f"[{ip}]" if ":" in ip and not ip.startswith("[") else ip
@@ -102,7 +102,11 @@ class LedFxClient:
                 method.value,
                 _url,
                 json=body,
-                auth=self._auth,
+                headers=(
+                    {"Authorization": self._authorization}
+                    if self._authorization
+                    else None
+                ),
                 timeout=ClientTimeout(total=_timeout),
             ) as response:
                 content: bytes = await response.read()
