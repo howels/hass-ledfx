@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 
 from homeassistant.components.system_health import SystemHealthRegistration
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 
-from .const import ATTR_DEVICE_SW_VERSION, ATTR_STATE, DOMAIN, UPDATER
+from .const import ATTR_DEVICE_SW_VERSION, ATTR_STATE, DOMAIN
 from .helper import async_get_version
-from .updater import LedFxUpdater
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,8 +36,11 @@ async def system_health_info(hass: HomeAssistant) -> dict[str, str]:
         "version": f"{await async_get_version(hass)}",
     }
 
-    for integration in hass.data[DOMAIN].values():
-        updater: LedFxUpdater = integration[UPDATER]
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.state is not ConfigEntryState.LOADED:
+            continue
+
+        updater = entry.runtime_data
 
         version: str = updater.data.get(ATTR_DEVICE_SW_VERSION, "")
         info[f"{updater.address} ({version})"] = (

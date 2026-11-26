@@ -19,7 +19,7 @@ from .const import (
     ATTR_STATE,
     ATTRIBUTION,
 )
-from .enum import Version
+from .enums import Version
 from .helper import generate_entity_id
 from .updater import LedFxUpdater, convert_brightness
 

@@ -10,7 +10,6 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -18,7 +17,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import ATTR_STATE, ATTR_STATE_NAME
 from .entity import LedFxEntity
-from .updater import LedFxUpdater, async_get_updater
+from .updater import LedFxConfigEntry, LedFxUpdater
 
 PARALLEL_UPDATES = 0
 
@@ -42,7 +41,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: LedFxConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up LedFx binary sensor entry.
@@ -52,7 +51,7 @@ async def async_setup_entry(
     :param async_add_entities: AddEntitiesCallback: Async add callback
     """
 
-    updater: LedFxUpdater = async_get_updater(hass, config_entry.entry_id)
+    updater: LedFxUpdater = config_entry.runtime_data
 
     entities: list[LedFxBinarySensor] = [
         LedFxBinarySensor(

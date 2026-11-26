@@ -1,5 +1,8 @@
 {
   "config": {
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    },
     "error": {
       "request.error": "Failed to complete the request. Check if the data is correct.",
       "connection.error": "There is no connection. Check if the data is correct."

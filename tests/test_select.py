@@ -33,7 +33,6 @@ from custom_components.ledfx.const import (
     ATTRIBUTION,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
-    UPDATER,
 )
 from custom_components.ledfx.exceptions import LedFxRequestError
 from custom_components.ledfx.helper import generate_entity_id
@@ -67,7 +66,7 @@ async def test_init(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
 
         assert updater.last_update_success
 
@@ -151,7 +150,7 @@ async def test_update_audio_devices(hass: HomeAssistant) -> None:
         )
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
         registry = er.async_get(hass)
 
         assert updater.last_update_success
@@ -190,23 +189,21 @@ async def test_update_audio_devices(hass: HomeAssistant) -> None:
             "samplerate",
         ]
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SELECT_DOMAIN,
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "samplerate"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
         assert state.state == "samplerate"
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SELECT_DOMAIN,
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "sysdefault"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -267,7 +264,7 @@ async def test_effect_property(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
         registry = er.async_get(hass)
 
         assert updater.last_update_success
@@ -337,12 +334,11 @@ async def test_effect_property(hass: HomeAssistant) -> None:
         ]
         assert state.attributes["attribution"] == ATTRIBUTION
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SELECT_DOMAIN,
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "tan"},
             blocking=True,
-            limit=None,
         )
 
         async_fire_time_changed(
@@ -351,12 +347,11 @@ async def test_effect_property(hass: HomeAssistant) -> None:
         await hass.async_block_till_done()
 
         with pytest.raises(LedFxRequestError):
-            assert await hass.services.async_call(
+            await hass.services.async_call(
                 SELECT_DOMAIN,
                 SERVICE_SELECT_OPTION,
                 {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "yellow-acid"},
                 blocking=True,
-                limit=None,
             )
 
 
@@ -387,7 +382,7 @@ async def test_new_effect_property(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
         registry = er.async_get(hass)
 
         assert updater.last_update_success
@@ -482,7 +477,7 @@ async def test_effect_incorrect_property(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
         registry = er.async_get(hass)
 
         assert updater.last_update_success
@@ -529,7 +524,7 @@ async def test_effect_property_disabled_light(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
         registry = er.async_get(hass)
 
         assert updater.last_update_success

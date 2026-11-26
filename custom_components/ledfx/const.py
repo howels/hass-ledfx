@@ -28,15 +28,12 @@ DIAGNOSTIC_MESSAGE: Final = "message"
 DIAGNOSTIC_CONTENT: Final = "content"
 
 """Helper const"""
-UPDATER: Final = "updater"
-UPDATE_LISTENER: Final = "update_listener"
 SIGNAL_NEW_BUTTON: Final = f"{DOMAIN}-new-button"
 SIGNAL_NEW_DEVICE: Final = f"{DOMAIN}-new-device"
 SIGNAL_NEW_NUMBER: Final = f"{DOMAIN}-new-number"
 SIGNAL_NEW_SELECT: Final = f"{DOMAIN}-new-select"
 SIGNAL_NEW_SENSOR: Final = f"{DOMAIN}-new-sensor"
 SIGNAL_NEW_SWITCH: Final = f"{DOMAIN}-new-switch"
-OPTION_IS_FROM_FLOW: Final = "is_from_flow"
 
 """Custom conf"""
 CONF_BASIC_AUTH: Final = "basic_auth"
@@ -45,8 +42,6 @@ CONF_BASIC_AUTH: Final = "basic_auth"
 DEFAULT_SCAN_INTERVAL: Final = 7
 DEFAULT_TIMEOUT: Final = 10
 DEFAULT_POST_TIMEOUT: Final = 60
-DEFAULT_CALL_DELAY: Final = 1
-DEFAULT_SLEEP: Final = 3
 
 """LedFx API client const"""
 CLIENT_URL: Final = "http://{ip}:{port}/api"
@@ -54,6 +49,7 @@ CLIENT_URL: Final = "http://{ip}:{port}/api"
 """Attributes"""
 ATTR_STATE: Final = "state"
 ATTR_STATE_NAME: Final = "State"
+ATTR_PAUSED: Final = "paused"
 ATTR_DEVICE: Final = "device"
 ATTR_DEVICE_SW_VERSION: Final = "device_sw_version"
 ATTR_FIELD: Final = "field"

@@ -10,7 +10,6 @@ from homeassistant.components.select import (
     SelectEntity,
     SelectEntityDescription,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import EntityCategory
@@ -32,10 +31,10 @@ from .const import (
     SIGNAL_NEW_SELECT,
 )
 from .entity import LedFxEntity
-from .enum import ActionType, Version
+from .enums import ActionType, Version
 from .exceptions import LedFxError
 from .helper import generate_entity_id
-from .updater import LedFxEntityDescription, LedFxUpdater, async_get_updater
+from .updater import LedFxConfigEntry, LedFxEntityDescription, LedFxUpdater
 
 PARALLEL_UPDATES = 0
 
@@ -58,7 +57,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: LedFxConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up LedFx select entry.
@@ -68,7 +67,7 @@ async def async_setup_entry(
     :param async_add_entities: AddEntitiesCallback: AddEntitiesCallback callback object
     """
 
-    updater: LedFxUpdater = async_get_updater(hass, config_entry.entry_id)
+    updater: LedFxUpdater = config_entry.runtime_data
 
     @callback
     def add_select(entity: LedFxEntityDescription) -> None:
@@ -100,6 +99,7 @@ async def async_setup_entry(
     updater.new_select_callback = async_dispatcher_connect(
         hass, SIGNAL_NEW_SELECT, add_select
     )
+    config_entry.async_on_unload(updater.new_select_callback)
 
 
 class LedFxSelect(LedFxEntity, SelectEntity):

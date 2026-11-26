@@ -27,8 +27,6 @@ from custom_components.ledfx.const import (
     ATTR_STATE_NAME,
     ATTRIBUTION,
     DEFAULT_SCAN_INTERVAL,
-    DOMAIN,
-    UPDATER,
 )
 from custom_components.ledfx.exceptions import LedFxRequestError
 from custom_components.ledfx.helper import generate_entity_id
@@ -62,7 +60,7 @@ async def test_init(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
 
         assert updater.last_update_success
 
@@ -100,7 +98,7 @@ async def test_update_state(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
         registry = er.async_get(hass)
 
         assert updater.last_update_success

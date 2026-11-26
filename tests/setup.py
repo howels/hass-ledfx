@@ -24,8 +24,6 @@ from custom_components.ledfx.const import (
     CONF_BASIC_AUTH,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
-    OPTION_IS_FROM_FLOW,
-    UPDATER,
 )
 from custom_components.ledfx.helper import get_config_value
 from custom_components.ledfx.updater import LedFxUpdater
@@ -57,7 +55,6 @@ async def async_setup(
     config_entry = MockConfigEntry(
         domain=DOMAIN,
         data=OPTIONS_FLOW_DATA | {CONF_IP_ADDRESS: _ip},
-        options={OPTION_IS_FROM_FLOW: True},
     )
     config_entry.add_to_hass(hass)
 
@@ -68,11 +65,6 @@ async def async_setup(
         _ip,
         get_config_value(config_entry, CONF_PORT),
     )
-
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][config_entry.entry_id] = {
-        UPDATER: updater,
-    }
 
     return updater, config_entry
 
@@ -98,6 +90,9 @@ async def async_mock_client(mock_client) -> None:
     mock_client.return_value.info = AsyncMock(
         return_value=json.loads(load_fixture("info_data.json"))
     )
+    mock_client.return_value.virtuals = AsyncMock(
+        return_value=json.loads(load_fixture("virtuals_data.json"))
+    )
 
 
 async def async_mock_client_2(mock_client) -> None:
@@ -120,6 +115,9 @@ async def async_mock_client_2(mock_client) -> None:
     )
     mock_client.return_value.virtuals = AsyncMock(
         return_value=json.loads(load_fixture("virtuals_data.json"))
+    )
+    mock_client.return_value.info = AsyncMock(
+        return_value=json.loads(load_fixture("info_data.json"))
     )
 
 

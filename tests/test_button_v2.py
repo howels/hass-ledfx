@@ -26,7 +26,6 @@ from custom_components.ledfx.const import (
     ATTRIBUTION,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
-    UPDATER,
 )
 from custom_components.ledfx.exceptions import LedFxRequestError
 from custom_components.ledfx.helper import generate_entity_id
@@ -79,7 +78,7 @@ async def test_scenes(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
 
         assert updater.last_update_success
 
@@ -93,12 +92,11 @@ async def test_scenes(hass: HomeAssistant) -> None:
 
         _prev_calls: int = len(mock_client.mock_calls)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             BUTTON_DOMAIN,
             SERVICE_PRESS,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         assert len(mock_client.mock_calls) == _prev_calls + 1
@@ -109,7 +107,6 @@ async def test_scenes(hass: HomeAssistant) -> None:
                 SERVICE_PRESS,
                 {ATTR_ENTITY_ID: [unique_id]},
                 blocking=True,
-                limit=None,
             )
 
         assert len(mock_client.mock_calls) == _prev_calls + 2
@@ -148,7 +145,7 @@ async def test_new_scene(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
         registry = er.async_get(hass)
 
         assert updater.last_update_success

@@ -5,15 +5,14 @@ from __future__ import annotations
 import logging
 
 from homeassistant.components.button import ENTITY_ID_FORMAT, ButtonEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import ATTR_STATE, SIGNAL_NEW_BUTTON
 from .entity import LedFxEntity
-from .enum import ActionType
-from .updater import LedFxEntityDescription, LedFxUpdater, async_get_updater
+from .enums import ActionType
+from .updater import LedFxConfigEntry, LedFxEntityDescription, LedFxUpdater
 
 PARALLEL_UPDATES = 0
 
@@ -22,7 +21,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: LedFxConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up LedFx button entry.
@@ -32,7 +31,7 @@ async def async_setup_entry(
     :param async_add_entities: AddEntitiesCallback: Async add callback
     """
 
-    updater: LedFxUpdater = async_get_updater(hass, config_entry.entry_id)
+    updater: LedFxUpdater = config_entry.runtime_data
 
     @callback
     def add_button(entity: LedFxEntityDescription) -> None:
@@ -57,6 +56,7 @@ async def async_setup_entry(
     updater.new_button_callback = async_dispatcher_connect(
         hass, SIGNAL_NEW_BUTTON, add_button
     )
+    config_entry.async_on_unload(updater.new_button_callback)
 
 
 # pylint: disable=too-many-ancestors

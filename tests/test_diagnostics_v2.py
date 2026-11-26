@@ -10,14 +10,12 @@ import pytest
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import load_fixture
-from pytest_httpx import HTTPXMock
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.ledfx.const import DOMAIN, UPDATER
 from custom_components.ledfx.diagnostics import (
     TO_REDACT,
     async_get_config_entry_diagnostics,
 )
-from custom_components.ledfx.enum import Method
 from custom_components.ledfx.updater import LedFxUpdater
 from tests.setup import async_setup, get_url
 
@@ -32,45 +30,26 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
+async def test_init(hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
     """Test init.
 
     :param hass: HomeAssistant
     """
 
-    httpx_mock.add_response(
-        text=load_fixture("colors_data.json"), method=Method.GET, url=get_url("colors")
-    )
-    httpx_mock.add_response(
-        text=load_fixture("devices_v2_data.json"),
-        method=Method.GET,
-        url=get_url("devices"),
-    )
-    httpx_mock.add_response(
-        text=load_fixture("scenes_data.json"), method=Method.GET, url=get_url("scenes")
-    )
-    httpx_mock.add_response(
-        text=load_fixture("schema_v2_data.json"),
-        method=Method.GET,
-        url=get_url("schema"),
-    )
-    httpx_mock.add_response(
-        text=load_fixture("config_v2_data.json"),
-        method=Method.GET,
-        url=get_url("config"),
-    )
-    httpx_mock.add_response(
-        text=load_fixture("virtuals_data.json"),
-        method=Method.GET,
-        url=get_url("virtuals"),
-    )
+    aioclient_mock.get(get_url("info"), text=load_fixture("info_data.json"))
+    aioclient_mock.get(get_url("colors"), text=load_fixture("colors_data.json"))
+    aioclient_mock.get(get_url("devices"), text=load_fixture("devices_v2_data.json"))
+    aioclient_mock.get(get_url("scenes"), text=load_fixture("scenes_data.json"))
+    aioclient_mock.get(get_url("schema"), text=load_fixture("schema_v2_data.json"))
+    aioclient_mock.get(get_url("config"), text=load_fixture("config_v2_data.json"))
+    aioclient_mock.get(get_url("virtuals"), text=load_fixture("virtuals_data.json"))
 
     _, config_entry = await async_setup(hass)
 
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+    updater: LedFxUpdater = config_entry.runtime_data
 
     assert updater.last_update_success
 

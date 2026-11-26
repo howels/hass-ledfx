@@ -1,6 +1,9 @@
 {
   "title": "LedFx",
   "config": {
+    "abort": {
+      "already_configured": "Device is already configured"
+    },
     "error": {
       "request.error": "Failed to complete the request. Check if the data is correct.",
       "connection.error": "There is no connection. Check if the data is correct."

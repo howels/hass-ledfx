@@ -6,7 +6,6 @@ import logging
 from typing import Any
 
 from homeassistant.components.switch import ENTITY_ID_FORMAT, SwitchEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -23,9 +22,9 @@ from .const import (
     SWITCH_ICONS,
 )
 from .entity import LedFxEntity
-from .enum import ActionType
+from .enums import ActionType
 from .helper import generate_entity_id
-from .updater import LedFxEntityDescription, LedFxUpdater, async_get_updater
+from .updater import LedFxConfigEntry, LedFxEntityDescription, LedFxUpdater
 
 PARALLEL_UPDATES = 0
 
@@ -34,7 +33,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: LedFxConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up LedFx number entry.
@@ -44,7 +43,7 @@ async def async_setup_entry(
     :param async_add_entities: AddEntitiesCallback: AddEntitiesCallback callback object
     """
 
-    updater: LedFxUpdater = async_get_updater(hass, config_entry.entry_id)
+    updater: LedFxUpdater = config_entry.runtime_data
 
     @callback
     def add_switch(entity: LedFxEntityDescription) -> None:
@@ -69,6 +68,7 @@ async def async_setup_entry(
     updater.new_switch_callback = async_dispatcher_connect(
         hass, SIGNAL_NEW_SWITCH, add_switch
     )
+    config_entry.async_on_unload(updater.new_switch_callback)
 
 
 # pylint: disable=too-many-ancestors

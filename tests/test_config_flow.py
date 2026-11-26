@@ -61,7 +61,7 @@ async def test_user(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
-    assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result_init["type"] == data_entry_flow.FlowResultType.FORM
     assert result_init["handler"] == DOMAIN
     assert result_init["step_id"] == "user"
 
@@ -69,7 +69,7 @@ async def test_user(hass: HomeAssistant) -> None:
         "custom_components.ledfx.async_setup_entry",
         return_value=True,
     ) as mock_async_setup_entry, patch(
-        "custom_components.ledfx.updater.LedFxClient"
+        "custom_components.ledfx.helper.LedFxClient"
     ) as mock_client:
         mock_client.return_value.config = AsyncMock(
             return_value=json.loads(load_fixture("config_data.json"))
@@ -105,7 +105,7 @@ async def test_user_with_request_error(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
-    assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result_init["type"] == data_entry_flow.FlowResultType.FORM
     assert result_init["handler"] == DOMAIN
     assert result_init["step_id"] == "user"
 
@@ -113,7 +113,7 @@ async def test_user_with_request_error(hass: HomeAssistant) -> None:
         "custom_components.ledfx.async_setup_entry",
         return_value=True,
     ) as mock_async_setup_entry, patch(
-        "custom_components.ledfx.updater.LedFxClient"
+        "custom_components.ledfx.helper.LedFxClient"
     ) as mock_client:
         mock_client.return_value.config = AsyncMock(side_effect=LedFxRequestError)
 
@@ -143,7 +143,7 @@ async def test_user_with_connection_error(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
-    assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result_init["type"] == data_entry_flow.FlowResultType.FORM
     assert result_init["handler"] == DOMAIN
     assert result_init["step_id"] == "user"
 
@@ -151,7 +151,7 @@ async def test_user_with_connection_error(hass: HomeAssistant) -> None:
         "custom_components.ledfx.async_setup_entry",
         return_value=True,
     ) as mock_async_setup_entry, patch(
-        "custom_components.ledfx.updater.LedFxClient"
+        "custom_components.ledfx.helper.LedFxClient"
     ) as mock_client:
         mock_client.return_value.config = AsyncMock(side_effect=LedFxConnectionError)
 
@@ -181,7 +181,7 @@ async def test_user_with_auth_show_form(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
-    assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result_init["type"] == data_entry_flow.FlowResultType.FORM
     assert result_init["handler"] == DOMAIN
     assert result_init["step_id"] == "user"
 
@@ -216,7 +216,7 @@ async def test_user_with_auth(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
-    assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result_init["type"] == data_entry_flow.FlowResultType.FORM
     assert result_init["handler"] == DOMAIN
     assert result_init["step_id"] == "user"
 
@@ -224,7 +224,7 @@ async def test_user_with_auth(hass: HomeAssistant) -> None:
         "custom_components.ledfx.async_setup_entry",
         return_value=True,
     ) as mock_async_setup_entry, patch(
-        "custom_components.ledfx.updater.LedFxClient"
+        "custom_components.ledfx.helper.LedFxClient"
     ) as mock_client:
         mock_client.return_value.config = AsyncMock(
             return_value=json.loads(load_fixture("config_data.json"))
@@ -275,7 +275,7 @@ async def test_user_with_auth_revert(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
-    assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result_init["type"] == data_entry_flow.FlowResultType.FORM
     assert result_init["handler"] == DOMAIN
     assert result_init["step_id"] == "user"
 
@@ -283,7 +283,7 @@ async def test_user_with_auth_revert(hass: HomeAssistant) -> None:
         "custom_components.ledfx.async_setup_entry",
         return_value=True,
     ) as mock_async_setup_entry, patch(
-        "custom_components.ledfx.updater.LedFxClient"
+        "custom_components.ledfx.helper.LedFxClient"
     ) as mock_client:
         mock_client.return_value.config = AsyncMock(
             return_value=json.loads(load_fixture("config_data.json"))
@@ -343,7 +343,7 @@ async def test_options_flow(hass: HomeAssistant) -> None:
         "custom_components.ledfx.async_setup_entry",
         return_value=True,
     ) as mock_async_setup_entry, patch(
-        "custom_components.ledfx.updater.LedFxClient"
+        "custom_components.ledfx.helper.LedFxClient"
     ) as mock_client:
         mock_client.return_value.config = AsyncMock(
             return_value=json.loads(load_fixture("config_data.json"))
@@ -356,7 +356,7 @@ async def test_options_flow(hass: HomeAssistant) -> None:
             config_entry.entry_id
         )
 
-        assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+        assert result_init["type"] == data_entry_flow.FlowResultType.FORM
         assert result_init["step_id"] == "init"
 
         result_save = await hass.config_entries.options.async_configure(
@@ -364,7 +364,7 @@ async def test_options_flow(hass: HomeAssistant) -> None:
             user_input=OPTIONS_FLOW_EDIT_DATA,
         )
 
-    assert result_save["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result_save["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert (
         config_entry.options[CONF_IP_ADDRESS] == OPTIONS_FLOW_EDIT_DATA[CONF_IP_ADDRESS]
     )
@@ -400,7 +400,7 @@ async def test_options_flow_with_auth(hass: HomeAssistant) -> None:
         "custom_components.ledfx.async_setup_entry",
         return_value=True,
     ) as mock_async_setup_entry, patch(
-        "custom_components.ledfx.updater.LedFxClient"
+        "custom_components.ledfx.helper.LedFxClient"
     ) as mock_client:
         mock_client.return_value.config = AsyncMock(
             return_value=json.loads(load_fixture("config_data.json"))
@@ -413,7 +413,7 @@ async def test_options_flow_with_auth(hass: HomeAssistant) -> None:
             config_entry.entry_id
         )
 
-        assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+        assert result_init["type"] == data_entry_flow.FlowResultType.FORM
         assert result_init["step_id"] == "init"
 
         result_save = await hass.config_entries.options.async_configure(
@@ -436,7 +436,7 @@ async def test_options_flow_with_auth(hass: HomeAssistant) -> None:
         )
         await hass.async_block_till_done()
 
-    assert result_save["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result_save["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert (
         config_entry.options[CONF_IP_ADDRESS] == OPTIONS_FLOW_EDIT_DATA[CONF_IP_ADDRESS]
     )
@@ -472,7 +472,7 @@ async def test_options_flow_request_error(hass: HomeAssistant) -> None:
         "custom_components.ledfx.async_setup_entry",
         return_value=True,
     ) as mock_async_setup_entry, patch(
-        "custom_components.ledfx.updater.LedFxClient"
+        "custom_components.ledfx.helper.LedFxClient"
     ) as mock_client:
         mock_client.return_value.config = AsyncMock(side_effect=LedFxRequestError)
 
@@ -483,7 +483,7 @@ async def test_options_flow_request_error(hass: HomeAssistant) -> None:
             config_entry.entry_id
         )
 
-        assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+        assert result_init["type"] == data_entry_flow.FlowResultType.FORM
         assert result_init["step_id"] == "init"
 
         result_save = await hass.config_entries.options.async_configure(
@@ -491,7 +491,7 @@ async def test_options_flow_request_error(hass: HomeAssistant) -> None:
             user_input=OPTIONS_FLOW_EDIT_DATA,
         )
 
-    assert result_save["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result_save["type"] == data_entry_flow.FlowResultType.FORM
     assert result_save["step_id"] == "init"
     assert result_save["errors"]["base"] == "request.error"
     assert len(mock_async_setup_entry.mock_calls) == 1
@@ -517,7 +517,7 @@ async def test_options_flow_connection_error(hass: HomeAssistant) -> None:
         "custom_components.ledfx.async_setup_entry",
         return_value=True,
     ) as mock_async_setup_entry, patch(
-        "custom_components.ledfx.updater.LedFxClient"
+        "custom_components.ledfx.helper.LedFxClient"
     ) as mock_client:
         mock_client.return_value.config = AsyncMock(side_effect=LedFxConnectionError)
 
@@ -528,7 +528,7 @@ async def test_options_flow_connection_error(hass: HomeAssistant) -> None:
             config_entry.entry_id
         )
 
-        assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+        assert result_init["type"] == data_entry_flow.FlowResultType.FORM
         assert result_init["step_id"] == "init"
 
         result_save = await hass.config_entries.options.async_configure(
@@ -536,7 +536,7 @@ async def test_options_flow_connection_error(hass: HomeAssistant) -> None:
             user_input=OPTIONS_FLOW_EDIT_DATA,
         )
 
-    assert result_save["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result_save["type"] == data_entry_flow.FlowResultType.FORM
     assert result_save["step_id"] == "init"
     assert result_save["errors"]["base"] == "connection.error"
     assert len(mock_async_setup_entry.mock_calls) == 1

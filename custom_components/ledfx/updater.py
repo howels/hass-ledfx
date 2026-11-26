@@ -3,30 +3,26 @@
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass
 from datetime import timedelta
 from functools import cached_property
+from http import HTTPStatus
 from typing import Any, Final
 
+from aiohttp import BasicAuth
 from homeassistant.components.button import ButtonEntityDescription
 from homeassistant.components.light import LightEntityDescription
 from homeassistant.components.number import NumberEntityDescription
 from homeassistant.components.select import SelectEntityDescription
 from homeassistant.components.sensor import SensorEntityDescription, SensorStateClass
 from homeassistant.components.switch import SwitchDeviceClass, SwitchEntityDescription
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
-from homeassistant.helpers import event
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.entity import (
-    EntityCategory,
-    EntityDescription,
-)
-from homeassistant.helpers.httpx_client import get_async_client
+from homeassistant.helpers.entity import EntityCategory, EntityDescription
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.util import utcnow
-from httpx import USE_CLIENT_DEFAULT, codes
 
 from .client import LedFxClient
 from .const import (
@@ -44,6 +40,7 @@ from .const import (
     ATTR_LIGHT_EFFECT_CONFIG,
     ATTR_LIGHT_EFFECTS,
     ATTR_LIGHT_STATE,
+    ATTR_PAUSED,
     ATTR_SELECT_AUDIO_INPUT,
     ATTR_SELECT_AUDIO_INPUT_OPTIONS,
     ATTR_STATE,
@@ -58,16 +55,16 @@ from .const import (
     SIGNAL_NEW_SELECT,
     SIGNAL_NEW_SENSOR,
     SIGNAL_NEW_SWITCH,
-    UPDATER,
 )
-from .enum import ActionType, Version
+from .enums import ActionType, Version
 from .exceptions import LedFxConnectionError, LedFxError, LedFxRequestError
 
-PREPARE_METHODS_V1: Final = (
+PREPARE_METHODS: Final = (
     "config",
     "info",
     "colors",
     "schema",
+    "virtuals",
     "devices",
     "audio_devices",
     "scenes",
@@ -77,13 +74,13 @@ _LOGGER = logging.getLogger(__name__)
 
 
 # pylint: disable=too-many-branches,too-many-lines,too-many-arguments
-class LedFxUpdater(DataUpdateCoordinator):
+class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
     """LedFx data updater for interaction with LedFX API."""
 
     version: Version = Version.V1
 
     client: LedFxClient
-    code: codes = codes.BAD_GATEWAY
+    code: HTTPStatus = HTTPStatus.BAD_GATEWAY
     ip: str
     port: str
 
@@ -94,33 +91,29 @@ class LedFxUpdater(DataUpdateCoordinator):
     new_sensor_callback: CALLBACK_TYPE | None = None
     new_switch_callback: CALLBACK_TYPE | None = None
 
-    _scan_interval: int
-    _is_only_check: bool = False
-
     def __init__(
         self,
         hass: HomeAssistant,
         ip: str,
         port: str,
-        auth: Any = USE_CLIENT_DEFAULT,
+        auth: BasicAuth | None = None,
         scan_interval: int = DEFAULT_SCAN_INTERVAL,
         timeout: int = DEFAULT_TIMEOUT,
-        is_only_check: bool = False,
+        config_entry: ConfigEntry | None = None,
     ) -> None:
         """Initialize updater.
 
-        :rtype: object
         :param hass: HomeAssistant: Home Assistant object
         :param ip: str: ip address
         :param port: str: port
-        :param auth: Any: Basic auth
+        :param auth: BasicAuth | None: Basic auth
         :param scan_interval: int: Update interval
         :param timeout: int: Query execution timeout
-        :param is_only_check: bool: Only config flow
+        :param config_entry: ConfigEntry | None: Config entry that owns the updater
         """
 
         self.client = LedFxClient(
-            get_async_client(hass, False),
+            async_get_clientsession(hass),
             ip,
             port,
             auth,
@@ -130,17 +123,13 @@ class LedFxUpdater(DataUpdateCoordinator):
         self.ip = ip  # pylint: disable=invalid-name
         self.port = port
 
-        self._scan_interval = scan_interval
-        self._is_only_check = is_only_check
-
-        if hass is not None:
-            super().__init__(
-                hass,
-                _LOGGER,
-                name=f"{NAME} updater",
-                update_interval=self._update_interval,
-                update_method=self.update,
-            )
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=config_entry,
+            name=f"{NAME} updater",
+            update_interval=timedelta(seconds=scan_interval),
+        )
 
         self.data: dict[str, Any] = {}
 
@@ -155,63 +144,25 @@ class LedFxUpdater(DataUpdateCoordinator):
         self.colors: dict = {}
         self.gradients: dict = {}
 
-        self._is_first_update: bool = True
+        self._virtuals: dict = {}
 
-    async def async_stop(self) -> None:
-        """Stop updater"""
-
-        callbacks: list = [
-            self.new_button_callback,
-            self.new_device_callback,
-            self.new_number_callback,
-            self.new_select_callback,
-            self.new_sensor_callback,
-            self.new_switch_callback,
-        ]
-
-        for _callback in callbacks:
-            if _callback is not None:
-                _callback()  # pylint: disable=not-callable
-
-    @cached_property
-    def _update_interval(self) -> timedelta:
-        """Update interval
-
-        :return timedelta: update_interval
-        """
-
-        return timedelta(seconds=self._scan_interval)
-
-    async def update(self) -> dict:
+    async def _async_update_data(self) -> dict[str, Any]:
         """Update LedFx information.
 
         :return dict: dict with LedFx data.
         """
 
-        self.code = codes.OK
-
-        _err: LedFxError | None = None
+        self.code = HTTPStatus.OK
 
         try:
-            for method in PREPARE_METHODS_V1:
-                if not self._is_only_check or method == "config":
-                    await self._async_prepare(method, self.data)
-        except LedFxConnectionError as _e:
-            _err = _e
+            for method in PREPARE_METHODS:
+                await self._async_prepare(method, self.data)
+        except LedFxConnectionError:
+            self.code = HTTPStatus.NOT_FOUND
+        except LedFxRequestError:
+            self.code = HTTPStatus.FORBIDDEN
 
-            self.code = codes.NOT_FOUND
-        except LedFxRequestError as _e:
-            _err = _e
-
-            self.code = codes.FORBIDDEN
-        else:
-            if self._is_first_update:
-                self._is_first_update = False
-
-        self.data[ATTR_STATE] = codes.is_success(self.code)
-
-        v_response: dict = await self.client.virtuals()
-        self.data["paused"] = v_response["paused"]
+        self.data[ATTR_STATE] = self.code == HTTPStatus.OK
 
         return self.data
 
@@ -240,22 +191,6 @@ class LedFxUpdater(DataUpdateCoordinator):
             configuration_url=f"http://{self.address}/",
         )
 
-    def schedule_refresh(self, offset: timedelta) -> None:
-        """Schedule refresh.
-
-        :param offset: timedelta
-        """
-
-        if self._unsub_refresh:  # type: ignore
-            self._unsub_refresh()  # type: ignore
-            self._unsub_refresh = None
-
-        self._unsub_refresh = event.async_track_point_in_utc_time(
-            self.hass,
-            self._job,
-            utcnow().replace(microsecond=0) + offset,
-        )
-
     async def _async_prepare(self, method: str, data: dict) -> None:
         """Prepare data.
 
@@ -274,13 +209,10 @@ class LedFxUpdater(DataUpdateCoordinator):
         :param data: dict
         """
 
-        if self.version != Version.V1:
-            return
-
         response: dict = await self.client.info()
 
-        if "version" in response:
-            data[ATTR_DEVICE_SW_VERSION] = response["version"]
+        if response.get("version"):
+            data[ATTR_DEVICE_SW_VERSION] = str(response["version"])
 
     async def _async_prepare_colors(self, data: dict) -> None:
         """Prepare colors.
@@ -322,7 +254,9 @@ class LedFxUpdater(DataUpdateCoordinator):
             data[ATTR_LIGHT_EFFECTS] = sorted(list(response["effects"].keys()))
 
             for effect, fields in response["effects"].items():
-                for code, parameter in fields["schema"]["properties"].items():
+                for code, parameter in (
+                    fields.get("schema", {}).get("properties", {}).items()
+                ):
                     if code == "brightness" or (
                         self.version == Version.V2 and code == "background_color"
                     ):
@@ -361,7 +295,7 @@ class LedFxUpdater(DataUpdateCoordinator):
             )
 
             if (
-                isinstance(data[ATTR_SELECT_AUDIO_INPUT], int)
+                isinstance(data.get(ATTR_SELECT_AUDIO_INPUT), int)
                 and str(data[ATTR_SELECT_AUDIO_INPUT])
                 in data[ATTR_SELECT_AUDIO_INPUT_OPTIONS]
             ):
@@ -392,14 +326,20 @@ class LedFxUpdater(DataUpdateCoordinator):
                 None,
             )
 
-        if entity_data.get("type") in ("integer", "number"):
+        if entity_data.get("type") in ("integer", "number", "int"):
+            minimum: float = float(entity_data.get("minimum", 0.0))
+            maximum: float = float(entity_data.get("maximum", minimum + 100.0))
+            is_integer: bool = entity_data.get("type") in ("integer", "int")
+
             return (
                 NumberEntityDescription(
                     key=code,
                     name=entity_data.get("title", code.title()),
-                    native_max_value=float(entity_data.get("maximum", 0.0)),
-                    native_min_value=float(entity_data.get("minimum", 0.0)),
-                    native_step=max(float(entity_data.get("minimum", 0.1)), 0.1),
+                    native_max_value=maximum,
+                    native_min_value=minimum,
+                    native_step=1.0
+                    if is_integer
+                    else (0.01 if maximum - minimum <= 1 else 0.1),
                     entity_category=EntityCategory.CONFIG,
                     entity_registry_enabled_default=False,
                 ),
@@ -440,17 +380,21 @@ class LedFxUpdater(DataUpdateCoordinator):
 
         response: dict = await self.client.config()
 
-        if "config" in response:
-            await self._async_prepare_config_v1(data, response)
-
-            return
-
         if "configuration_version" in response:
             self.version = Version.V2
 
-            data[ATTR_DEVICE_SW_VERSION] = response["configuration_version"]
+            data.setdefault(
+                ATTR_DEVICE_SW_VERSION, str(response["configuration_version"])
+            )
 
             await self._async_prepare_config_v2(data, response)
+
+            return
+
+        if "config" in response:
+            self.version = Version.V1
+
+            await self._async_prepare_config_v1(data, response)
 
     async def _async_prepare_config_v1(self, data: dict, response: dict) -> None:
         """Prepare config V1.
@@ -459,50 +403,25 @@ class LedFxUpdater(DataUpdateCoordinator):
         :param response: dict
         """
 
-        if "audio" in response["config"]:
-            for code, value in response["config"]["audio"].items():
+        config: dict = response["config"]
+
+        if "audio" in config:
+            for code, value in config["audio"].items():
                 if code == "device_name":
-                    data[ATTR_SELECT_AUDIO_INPUT] = response["config"]["audio"][
-                        "device_name"
-                    ]
+                    data[ATTR_SELECT_AUDIO_INPUT] = value
                 elif code != "device_index":
-                    data[code] = value
+                    self._prepare_audio_sensor(data, code, value)
 
-                    if code in self.sensors:
-                        continue
-
-                    self.sensors[code] = LedFxEntityDescription(
-                        description=SensorEntityDescription(
-                            key=code,
-                            name=code.replace("_", " ").title(),
-                            state_class=SensorStateClass.TOTAL,
-                            entity_category=EntityCategory.DIAGNOSTIC,
-                            entity_registry_enabled_default=False,
-                        ),
-                        device_info=self.device_info,
-                    )
-
-                    if self.new_sensor_callback:
-                        async_dispatcher_send(
-                            self.hass, SIGNAL_NEW_SENSOR, self.sensors[code]
-                        )
-
-        if (
-            "default_presets" in response["config"]
-            and response["config"]["default_presets"]
-        ):
+        if config.get("default_presets"):
             data[ATTR_LIGHT_DEFAULT_PRESETS] = {
                 effect: sorted(list(presets.keys()))
-                for effect, presets in response["config"]["default_presets"].items()
+                for effect, presets in config["default_presets"].items()
             }
 
-        if (
-            "custom_presets" in response["config"]
-            and response["config"]["custom_presets"]
-        ):
+        if config.get("custom_presets"):
             data[ATTR_LIGHT_CUSTOM_PRESETS] = {
                 effect: sorted(list(presets.keys()))
-                for effect, presets in response["config"]["custom_presets"].items()
+                for effect, presets in config["custom_presets"].items()
             }
 
     async def _async_prepare_config_v2(self, data: dict, response: dict) -> None:
@@ -515,42 +434,75 @@ class LedFxUpdater(DataUpdateCoordinator):
         if "audio" in response:
             for code, value in response["audio"].items():
                 if code == "audio_device":
-                    data[ATTR_SELECT_AUDIO_INPUT] = int(
-                        response["audio"]["audio_device"]
-                    )
-                elif code != "device_index":
-                    data[code] = value
+                    try:
+                        data[ATTR_SELECT_AUDIO_INPUT] = int(value)
+                    except (TypeError, ValueError):
+                        data.pop(ATTR_SELECT_AUDIO_INPUT, None)
+                elif code not in ("device_index", "audio_device_name"):
+                    self._prepare_audio_sensor(data, code, value)
 
-                    if code in self.sensors:
-                        continue
-
-                    self.sensors[code] = LedFxEntityDescription(
-                        description=SensorEntityDescription(
-                            key=code,
-                            name=code.replace("_", " ").title(),
-                            state_class=SensorStateClass.TOTAL,
-                            entity_category=EntityCategory.DIAGNOSTIC,
-                            entity_registry_enabled_default=False,
-                        ),
-                        device_info=self.device_info,
-                    )
-
-                    if self.new_sensor_callback:
-                        async_dispatcher_send(
-                            self.hass, SIGNAL_NEW_SENSOR, self.sensors[code]
-                        )
-
-        if "ledfx_presets" in response and response["ledfx_presets"]:
+        if response.get("ledfx_presets"):
             data[ATTR_LIGHT_DEFAULT_PRESETS] = {
                 effect: sorted(list(presets.keys()))
                 for effect, presets in response["ledfx_presets"].items()
             }
 
-        if "user_presets" in response and response["user_presets"]:
+        if response.get("user_presets"):
             data[ATTR_LIGHT_CUSTOM_PRESETS] = {
                 effect: sorted(list(presets.keys()))
                 for effect, presets in response["user_presets"].items()
             }
+
+    def _prepare_audio_sensor(self, data: dict, code: str, value: Any) -> None:
+        """Store an audio setting and create a diagnostic sensor for it.
+
+        :param data: dict
+        :param code: str: Setting code
+        :param value: Any: Setting value
+        """
+
+        data[code] = value
+
+        if code in self.sensors:
+            return
+
+        is_numeric: bool = isinstance(value, (int, float)) and not isinstance(
+            value, bool
+        )
+
+        self.sensors[code] = LedFxEntityDescription(
+            description=SensorEntityDescription(
+                key=code,
+                name=code.replace("_", " ").title(),
+                state_class=SensorStateClass.MEASUREMENT if is_numeric else None,
+                entity_category=EntityCategory.DIAGNOSTIC,
+                entity_registry_enabled_default=False,
+            ),
+            device_info=self.device_info,
+        )
+
+        if self.new_sensor_callback:
+            async_dispatcher_send(self.hass, SIGNAL_NEW_SENSOR, self.sensors[code])
+
+    async def _async_prepare_virtuals(self, data: dict) -> None:
+        """Prepare virtuals and the global pause state.
+
+        :param data: dict
+        """
+
+        if self.version == Version.V1:
+            try:
+                response: dict = await self.client.virtuals()
+            except LedFxError:
+                self._virtuals = {}
+                data[ATTR_PAUSED] = False
+
+                return
+        else:
+            response = await self.client.virtuals()
+
+        self._virtuals = response.get("virtuals") or {}
+        data[ATTR_PAUSED] = bool(response.get("paused", False))
 
     async def _async_prepare_devices(self, data: dict) -> None:
         """Prepare devices.
@@ -559,37 +511,32 @@ class LedFxUpdater(DataUpdateCoordinator):
         """
 
         response: dict = await self.client.devices()
-
-        if "devices" not in response or not response["devices"]:  # pragma: no cover
-            return
+        physical: dict = response.get("devices") or {}
 
         if self.version == Version.V1:
-            self._build_device(data, response["devices"])
+            if physical:
+                self._build_device(data, physical)
 
             return
 
-        v_response: dict = await self.client.virtuals()
+        devices: dict = {}
+        for key, virtual in self._virtuals.items():
+            devices[key] = virtual
 
-        if "virtuals" in v_response and v_response["virtuals"]:
-            devices: dict = {}
-            for key, virtual in v_response["virtuals"].items():
-                devices[key] = virtual
+            if (
+                virtual.get("is_device")
+                and virtual.get("is_device", "") in physical
+            ):
+                physical_device: dict = physical[virtual["is_device"]]
 
-                if (
-                    virtual.get("is_device")
-                    and virtual.get("is_device", "") in response["devices"]
-                ):
-                    devices[key]["config"] |= {
-                        code: value
-                        for code, value in response["devices"][
-                            virtual.get("is_device")
-                        ]["config"].items()
-                        if code == "ip_address"
-                    }
-                    devices[key]["type"] = response["devices"][
-                        virtual.get("is_device")
-                    ]["type"]
+                devices[key]["config"] = dict(virtual.get("config", {})) | {
+                    code: value
+                    for code, value in physical_device.get("config", {}).items()
+                    if code == "ip_address"
+                }
+                devices[key]["type"] = physical_device.get("type")
 
+        if devices:
             self._build_device(data, devices)
 
     def _build_device(self, data: dict, devices: dict) -> None:
@@ -600,18 +547,21 @@ class LedFxUpdater(DataUpdateCoordinator):
         """
 
         for code, device in devices.items():
+            # LedFx 2.x keeps the last effect on a virtual that was switched off,
+            # and reports that through the `active` flag.
             data[f"{code}_{ATTR_LIGHT_STATE}"] = bool(
-                "effect" in device and device["effect"]
+                device.get("effect") and device.get("active", True)
             )
 
             if data[f"{code}_{ATTR_LIGHT_STATE}"]:
                 data |= {
                     f"{code}_{ATTR_LIGHT_BRIGHTNESS}": convert_brightness(
-                        float(device["effect"]["config"]["brightness"]), True
+                        float(device["effect"].get("config", {}).get("brightness", 1)),
+                        True,
                     ),
                     f"{code}_{ATTR_LIGHT_EFFECT}": device["effect"].get("type"),
                     f"{code}_{ATTR_LIGHT_EFFECT_CONFIG}": self._convert_effect_config(
-                        device["effect"]["config"]
+                        dict(device["effect"].get("config", {}))
                     ),
                 }
             else:
@@ -625,9 +575,9 @@ class LedFxUpdater(DataUpdateCoordinator):
 
             if self.version == Version.V2:
                 data |= {
-                    f"{code}_{ATTR_LIGHT_COLOR}": device["effect"]["config"].get(
-                        "background_color"
-                    )
+                    f"{code}_{ATTR_LIGHT_COLOR}": device["effect"]
+                    .get("config", {})
+                    .get("background_color")
                     if data[f"{code}_{ATTR_LIGHT_STATE}"]
                     else None
                 }
@@ -644,7 +594,7 @@ class LedFxUpdater(DataUpdateCoordinator):
                     (DOMAIN, device_config.get("ip_address", f"{self.address}-{code}"))
                 },
                 name=device_config.get("name", code),
-                model=device_config.get("type"),
+                model=device_config.get("type") or device.get("type"),
                 configuration_url=f"http://{self.address}/devices/{code}",
             )
 
@@ -701,7 +651,12 @@ class LedFxUpdater(DataUpdateCoordinator):
             field: LedFxEntityDescription | None = None
             signal: str | None = None
 
-            if isinstance(info[ATTR_FIELD], NumberEntityDescription):
+            # Dispatch on the recorded field type. `isinstance` against an entity
+            # description class is unreliable: Home Assistant's frozen dataclass
+            # compatibility layer returns instances of an internal subclass.
+            field_type: str | None = info.get(ATTR_FIELD_TYPE)
+
+            if field_type == "number":
                 if f"{code}_{prop}" in self.numbers:
                     continue
 
@@ -718,7 +673,7 @@ class LedFxUpdater(DataUpdateCoordinator):
 
                 if self.new_number_callback:
                     signal = SIGNAL_NEW_NUMBER
-            elif isinstance(info[ATTR_FIELD], SwitchEntityDescription):
+            elif field_type == "switch":
                 if f"{code}_{prop}" in self.switches:
                     continue
 
@@ -735,7 +690,7 @@ class LedFxUpdater(DataUpdateCoordinator):
 
                 if self.new_switch_callback:
                     signal = SIGNAL_NEW_SWITCH
-            elif isinstance(info[ATTR_FIELD], SelectEntityDescription):
+            elif field_type in ("select", "color"):
                 if f"{code}_{prop}" in self.selects:
                     continue
 
@@ -819,32 +774,38 @@ class LedFxEntityDescription:
 def convert_brightness(brightness: float, is_reverse: bool = False) -> float:
     """Convert brightness
 
+    LedFx uses a 0.0-1.0 range, Home Assistant uses 0-255.
+
     :param brightness: float
-    :param is_reverse: bool
+    :param is_reverse: bool: Convert from the LedFx range to the Home Assistant range
     :return: float
     """
 
     if is_reverse:
-        return min(float(math.ceil(brightness * 100 * 2.55)), 255)
+        return float(min(max(round(brightness * 255), 0), 255))
 
-    # pylint: disable=consider-using-f-string
-    return float("{:.1f}".format(min(float(brightness / 100 / 2.55), 1.0)))
+    return round(min(max(float(brightness) / 255, 0.0), 1.0), 2)
+
+
+LedFxConfigEntry = ConfigEntry[LedFxUpdater]
 
 
 @callback
 def async_get_updater(hass: HomeAssistant, identifier: str) -> LedFxUpdater:
-    """Return LedFxUpdater for ip address or entry id.
+    """Return LedFxUpdater for a config entry id.
 
     :param hass: HomeAssistant
-    :param identifier: str
+    :param identifier: str: Config entry id
     :return LedFxUpdater
     """
 
+    entry: ConfigEntry | None = hass.config_entries.async_get_entry(identifier)
+
     if (
-        DOMAIN not in hass.data
-        or identifier not in hass.data[DOMAIN]
-        or UPDATER not in hass.data[DOMAIN][identifier]
+        entry is None
+        or entry.domain != DOMAIN
+        or not isinstance(getattr(entry, "runtime_data", None), LedFxUpdater)
     ):
         raise ValueError(f"Integration with identifier: {identifier} not found.")
 
-    return hass.data[DOMAIN][identifier][UPDATER]
+    return entry.runtime_data
