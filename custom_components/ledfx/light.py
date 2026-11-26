@@ -15,7 +15,6 @@ from homeassistant.components.light import (
     LightEntity,
     LightEntityFeature,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -35,12 +34,11 @@ from .const import (
     SIGNAL_NEW_DEVICE,
 )
 from .entity import LedFxEntity
-from .enum import ActionType, EffectCategory, Version
+from .enums import ActionType, EffectCategory, Version
 from .helper import build_effects, find_effect, hex_to_rgbw, rgbw_to_hex
 from .updater import (
     LedFxEntityDescription,
     LedFxUpdater,
-    async_get_updater,
     convert_brightness,
 )
 
@@ -51,7 +49,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: LedFxConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up LedFx light entry.
@@ -61,7 +59,7 @@ async def async_setup_entry(
     :param async_add_entities: AddEntitiesCallback: AddEntitiesCallback callback object
     """
 
-    updater: LedFxUpdater = async_get_updater(hass, config_entry.entry_id)
+    updater: LedFxUpdater = config_entry.runtime_data
 
     @callback
     def add_device(entity: LedFxEntityDescription) -> None:
@@ -86,6 +84,7 @@ async def async_setup_entry(
     updater.new_device_callback = async_dispatcher_connect(
         hass, SIGNAL_NEW_DEVICE, add_device
     )
+    config_entry.async_on_unload(updater.new_device_callback)
 
 
 # pylint: disable=too-many-ancestors
@@ -121,6 +120,9 @@ class LedFxLight(LedFxEntity, LightEntity):
         if updater.version == Version.V2:
             self._attr_supported_color_modes = {ColorMode.RGBW}
             self._attr_color_mode = ColorMode.RGBW
+        else:
+            self._attr_supported_color_modes = {ColorMode.BRIGHTNESS}
+            self._attr_color_mode = ColorMode.BRIGHTNESS
 
         self._attr_is_on = updater.data.get(
             f"{self._attr_device_code}_{ATTR_LIGHT_STATE}", False

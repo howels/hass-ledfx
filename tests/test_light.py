@@ -28,7 +28,6 @@ from custom_components.ledfx.const import (
     ATTRIBUTION,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
-    UPDATER,
 )
 from custom_components.ledfx.exceptions import LedFxRequestError
 from custom_components.ledfx.helper import generate_entity_id
@@ -171,7 +170,7 @@ async def test_devices(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
 
         assert updater.last_update_success
 
@@ -256,7 +255,7 @@ async def test_devices_without_custom_preset(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
 
         assert updater.last_update_success
 
@@ -304,7 +303,7 @@ async def test_new_devices(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
         registry = er.async_get(hass)
 
         assert updater.last_update_success
@@ -378,7 +377,7 @@ async def test_devices_on(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
 
         assert updater.last_update_success
 
@@ -389,7 +388,6 @@ async def test_devices_on(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -409,7 +407,6 @@ async def test_devices_on(hass: HomeAssistant) -> None:
                 SERVICE_TURN_ON,
                 {ATTR_ENTITY_ID: [unique_id], ATTR_EFFECT: "wavelength(Reactive)"},
                 blocking=True,
-                limit=None,
             )
 
 
@@ -465,7 +462,7 @@ async def test_devices_on_with_effect(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
 
         assert updater.last_update_success
 
@@ -476,7 +473,6 @@ async def test_devices_on_with_effect(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id], ATTR_EFFECT: "wavelength(Reactive)"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -496,7 +492,6 @@ async def test_devices_on_with_effect(hass: HomeAssistant) -> None:
                 SERVICE_TURN_ON,
                 {ATTR_ENTITY_ID: [unique_id], ATTR_EFFECT: "bar(Reactive)"},
                 blocking=True,
-                limit=None,
             )
 
 
@@ -529,7 +524,7 @@ async def test_devices_on_with_effect_and_brightness(hass: HomeAssistant) -> Non
                 "active": True,
                 "background_color": "black",
                 "blur": 3.0,
-                "brightness": 0.5,
+                "brightness": 0.49,
                 "flip": False,
                 "gradient_name": "Rainbow",
                 "gradient_repeat": 1,
@@ -556,7 +551,7 @@ async def test_devices_on_with_effect_and_brightness(hass: HomeAssistant) -> Non
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
 
         assert updater.last_update_success
 
@@ -571,7 +566,6 @@ async def test_devices_on_with_effect_and_brightness(hass: HomeAssistant) -> Non
                 ATTR_BRIGHTNESS: 125,
             },
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -596,7 +590,6 @@ async def test_devices_on_with_effect_and_brightness(hass: HomeAssistant) -> Non
                     ATTR_BRIGHTNESS: 125,
                 },
                 blocking=True,
-                limit=None,
             )
 
 
@@ -662,7 +655,7 @@ async def test_devices_on_with_preset(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
 
         assert updater.last_update_success
 
@@ -676,7 +669,6 @@ async def test_devices_on_with_preset(hass: HomeAssistant) -> None:
                 ATTR_EFFECT: "bar(Reactive) - bouncing-blues",
             },
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -699,7 +691,6 @@ async def test_devices_on_with_preset(hass: HomeAssistant) -> None:
                     ATTR_EFFECT: "bar(Reactive) - bouncing-blues",
                 },
                 blocking=True,
-                limit=None,
             )
 
 
@@ -739,7 +730,7 @@ async def test_devices_on_with_preset_and_brightness(hass: HomeAssistant) -> Non
             assert config == {
                 "background_color": "black",
                 "blur": 8.587469069357562,
-                "brightness": 0.5,
+                "brightness": 0.49,
                 "flip": True,
                 "gradient_name": "Sunset",
                 "gradient_repeat": 1,
@@ -763,7 +754,7 @@ async def test_devices_on_with_preset_and_brightness(hass: HomeAssistant) -> Non
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
 
         assert updater.last_update_success
 
@@ -778,7 +769,6 @@ async def test_devices_on_with_preset_and_brightness(hass: HomeAssistant) -> Non
                 ATTR_BRIGHTNESS: 125,
             },
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -803,7 +793,6 @@ async def test_devices_on_with_preset_and_brightness(hass: HomeAssistant) -> Non
                     ATTR_BRIGHTNESS: 125,
                 },
                 blocking=True,
-                limit=None,
             )
 
 
@@ -834,7 +823,7 @@ async def test_devices_off(hass: HomeAssistant) -> None:
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
-        updater: LedFxUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        updater: LedFxUpdater = config_entry.runtime_data
 
         assert updater.last_update_success
 
@@ -847,7 +836,6 @@ async def test_devices_off(hass: HomeAssistant) -> None:
                 ATTR_ENTITY_ID: [unique_id],
             },
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -861,7 +849,6 @@ async def test_devices_off(hass: HomeAssistant) -> None:
                     ATTR_ENTITY_ID: [unique_id],
                 },
                 blocking=True,
-                limit=None,
             )
 
 

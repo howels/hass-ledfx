@@ -4,24 +4,26 @@ from __future__ import annotations
 
 from homeassistant.components.media_player import (
     ENTITY_ID_FORMAT,
+    MediaPlayerDeviceClass,
     MediaPlayerEntity,
     MediaPlayerEntityDescription,
     MediaPlayerEntityFeature,
     MediaPlayerState,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import ATTR_STATE
+from .const import ATTR_PAUSED, ATTR_STATE
 from .entity import LedFxEntity
-from .updater import LedFxUpdater, async_get_updater
+from .updater import LedFxConfigEntry, LedFxUpdater
+
+PARALLEL_UPDATES = 0
 
 MEDIA_PLAYERS: tuple[MediaPlayerEntityDescription, ...] = (
     MediaPlayerEntityDescription(
         key="media_player",
         name="LedFx media player",
-        device_class="tv",
+        device_class=MediaPlayerDeviceClass.TV,
         entity_registry_enabled_default=True,
     ),
 )
@@ -29,17 +31,17 @@ MEDIA_PLAYERS: tuple[MediaPlayerEntityDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    config_entry: ConfigEntry,
+    config_entry: LedFxConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up LedFx media player entry.
 
     :param hass: HomeAssistant: Home Assistant object
-    :param config_entry: ConfigEntry: Config Entry object
+    :param config_entry: LedFxConfigEntry: Config Entry object
     :param async_add_entities: AddEntitiesCallback: Async add callback
     """
 
-    updater: LedFxUpdater = async_get_updater(hass, config_entry.entry_id)
+    updater: LedFxUpdater = config_entry.runtime_data
 
     entities: list[LedFxMediaPlayer] = [
         LedFxMediaPlayer(
@@ -53,7 +55,15 @@ async def async_setup_entry(
 
 
 class LedFxMediaPlayer(LedFxEntity, MediaPlayerEntity):
-    """LedFx media player entry."""
+    """LedFx media player entry.
+
+    LedFx exposes one global pause switch for all virtuals. The entity maps
+    `PLAYING` to unpaused and `PAUSED` to paused.
+    """
+
+    _attr_supported_features = (
+        MediaPlayerEntityFeature.PLAY | MediaPlayerEntityFeature.PAUSE
+    )
 
     def __init__(
         self,
@@ -70,30 +80,48 @@ class LedFxMediaPlayer(LedFxEntity, MediaPlayerEntity):
 
         LedFxEntity.__init__(self, unique_id, description, updater, ENTITY_ID_FORMAT)
 
-        self._supported_features = (
-            MediaPlayerEntityFeature.PLAY
-            | MediaPlayerEntityFeature.PAUSE
-        )
+        self._attr_state = self._state_from_data()
 
-    @property
-    def supported_features(self) -> MediaPlayerEntityFeature:
-        """Supported features."""
-        return self._supported_features
+    def _state_from_data(self) -> MediaPlayerState:
+        """Return the media player state for the current updater data."""
+
+        if self._updater.data.get(ATTR_PAUSED):
+            return MediaPlayerState.PAUSED
+
+        return MediaPlayerState.PLAYING
 
     def _handle_coordinator_update(self) -> None:
         """Update state."""
 
-        if self._updater.data.get("paused"):
-            self._attr_state = MediaPlayerState.PAUSED
-        else:
-            self._attr_state = MediaPlayerState.PLAYING
+        self._attr_available = self._updater.data.get(ATTR_STATE, False)
+        self._attr_state = self._state_from_data()
+
+        self.async_write_ha_state()
+
+    async def _async_set_paused(self, paused: bool) -> None:
+        """Set the global pause state.
+
+        LedFx only offers a toggle, so a request is sent when the state differs.
+
+        :param paused: bool: Requested pause state
+        """
+
+        if bool(self._updater.data.get(ATTR_PAUSED)) == paused:
+            return
+
+        response: dict = await self._updater.client.toggle_play_pause()
+
+        self._updater.data[ATTR_PAUSED] = bool(response.get(ATTR_PAUSED, paused))
+        self._attr_state = self._state_from_data()
 
         self.async_write_ha_state()
 
     async def async_media_play(self) -> None:
-        """Play media."""
-        await self._updater.client.toggle_play_pause()
+        """Resume the virtuals."""
+
+        await self._async_set_paused(False)
 
     async def async_media_pause(self) -> None:
-        """Pause media."""
-        await self._updater.client.toggle_play_pause()
+        """Pause the virtuals."""
+
+        await self._async_set_paused(True)
