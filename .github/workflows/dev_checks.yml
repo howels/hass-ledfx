@@ -9,14 +9,19 @@ on:
     - cron: '0 */6 * * *'
 
 jobs:
-  py-lint-test:
-    runs-on: "ubuntu-latest"
+  tests-dev:
+    runs-on: ubuntu-latest
+    # The Home Assistant development branch can run ahead of the released
+    # pytest-homeassistant-custom-component plugin. A failure is a signal, not a gate.
+    continue-on-error: true
     steps:
-      - uses: actions/checkout@v2
-      - uses: dmamontov/hass-py-lint@main
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          hass-version: "dev"
-          path: "custom_components/ledfx tests"
-          use-pytest: true
-          extra-pylint-options: "--disable=unused-argument"
-          use-hass-branch: true
+          python-version: '3.14'
+      - name: Install the Home Assistant development branch
+        run: |
+          pip install -r requirements_test.txt
+          pip install --upgrade "git+https://github.com/home-assistant/core.git@dev"
+      - name: Run tests
+        run: pytest
