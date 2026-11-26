@@ -7,6 +7,7 @@ import logging
 from datetime import datetime
 from http import HTTPStatus
 from typing import Any
+from urllib.parse import quote
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
@@ -343,6 +344,61 @@ class LedFxClient:
         """
 
         return await self.request("config", Method.PUT, patch)
+
+    async def add_sendspin_server(
+        self, server_id: str, server_url: str, client_name: str | None = None
+    ) -> dict:
+        """sendspin/servers add method.
+
+        :param server_id: str: Name that LedFx converts into the server id
+        :param server_url: str: ws:// or wss:// URL of the Sendspin server
+        :param client_name: str | None: Name LedFx announces to the server
+        :return dict: dict with api data.
+        """
+
+        body: dict = {"id": server_id, "server_url": server_url}
+
+        if client_name:
+            body["client_name"] = client_name
+
+        return await self.request("sendspin/servers", Method.POST, body)
+
+    async def update_sendspin_server(
+        self,
+        server_id: str,
+        server_url: str | None = None,
+        client_name: str | None = None,
+    ) -> dict:
+        """sendspin/servers/{id} update method.
+
+        :param server_id: str: Server id
+        :param server_url: str | None: New ws:// or wss:// URL
+        :param client_name: str | None: New client name
+        :return dict: dict with api data.
+        """
+
+        body: dict = {}
+
+        if server_url:
+            body["server_url"] = server_url
+
+        if client_name:
+            body["client_name"] = client_name
+
+        return await self.request(
+            f"sendspin/servers/{quote(server_id, safe='')}", Method.PUT, body
+        )
+
+    async def remove_sendspin_server(self, server_id: str) -> dict:
+        """sendspin/servers/{id} remove method.
+
+        :param server_id: str: Server id
+        :return dict: dict with api data.
+        """
+
+        return await self.request(
+            f"sendspin/servers/{quote(server_id, safe='')}", Method.DELETE
+        )
 
     async def toggle_play_pause(self) -> dict:
         """virtuals pause toggle method.

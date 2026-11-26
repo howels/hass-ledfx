@@ -67,6 +67,11 @@
       "playback": {
         "name": "Wiedergabe"
       }
+    },
+    "sensor": {
+      "sendspin_servers": {
+        "name": "Sendspin-Server"
+      }
     }
   },
   "system_health": {

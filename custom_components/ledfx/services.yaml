@@ -1,0 +1,58 @@
+add_sendspin_server:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: ledfx
+    server_id:
+      required: true
+      example: living_room
+      selector:
+        text:
+    server_url:
+      required: true
+      example: ws://192.0.2.10:8927/sendspin
+      selector:
+        text:
+    client_name:
+      required: false
+      example: LedFx
+      selector:
+        text:
+
+update_sendspin_server:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: ledfx
+    server_id:
+      required: true
+      example: living_room
+      selector:
+        text:
+    server_url:
+      required: false
+      example: ws://192.0.2.10:8927/sendspin
+      selector:
+        text:
+    client_name:
+      required: false
+      example: LedFx
+      selector:
+        text:
+
+remove_sendspin_server:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: ledfx
+    server_id:
+      required: true
+      example: living_room
+      selector:
+        text:

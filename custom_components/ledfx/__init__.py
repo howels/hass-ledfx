@@ -15,7 +15,9 @@ from homeassistant.const import (
     CONF_VERIFY_SSL,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.device_registry import DeviceEntry
+from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     DEFAULT_SCAN_INTERVAL,
@@ -26,9 +28,25 @@ from .const import (
     PLATFORMS,
 )
 from .helper import build_authorization, get_config_value
+from .services import async_setup_services
 from .updater import LedFxConfigEntry, LedFxUpdater
 
 _LOGGER = logging.getLogger(__name__)
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the service actions.
+
+    :param hass: HomeAssistant: Home Assistant object
+    :param config: ConfigType: Home Assistant configuration
+    :return bool: Is success
+    """
+
+    async_setup_services(hass)
+
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: LedFxConfigEntry) -> bool:

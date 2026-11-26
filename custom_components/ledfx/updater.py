@@ -42,6 +42,9 @@ from .const import (
     ATTR_PAUSED,
     ATTR_SELECT_AUDIO_INPUT,
     ATTR_SELECT_AUDIO_INPUT_OPTIONS,
+    ATTR_SENDSPIN_AVAILABLE,
+    ATTR_SENDSPIN_SERVERS,
+    ATTR_SENDSPIN_SERVERS_ATTRIBUTES,
     ATTR_STARTUP_PLAYLIST,
     ATTR_STARTUP_PLAYLIST_ID,
     ATTR_STARTUP_SCENE,
@@ -241,6 +244,11 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
 
         if response.get("version"):
             data[ATTR_DEVICE_SW_VERSION] = str(response["version"])
+
+        features: Any = response.get("features")
+        data[ATTR_SENDSPIN_AVAILABLE] = bool(
+            isinstance(features, dict) and features.get("sendspin")
+        )
 
     async def _async_prepare_colors(self, data: dict) -> None:
         """Prepare colors.
@@ -484,7 +492,7 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
             }
 
     def _prepare_extra_config(self, data: dict, response: dict) -> None:
-        """Store the startup settings of a version 2 configuration.
+        """Store the startup and Sendspin settings of a version 2 configuration.
 
         :param data: dict
         :param response: dict
@@ -495,6 +503,22 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
                 data[key] = str(response[key] or "")
             else:
                 data.pop(key, None)
+
+        servers: Any = response.get(ATTR_SENDSPIN_SERVERS)
+
+        if isinstance(servers, dict):
+            data[ATTR_SENDSPIN_SERVERS] = len(servers)
+            data[ATTR_SENDSPIN_SERVERS_ATTRIBUTES] = {
+                "servers": {
+                    str(code): dict(server)
+                    for code, server in servers.items()
+                    if isinstance(server, dict)
+                }
+            }
+        else:
+            data.pop(ATTR_SENDSPIN_SERVERS, None)
+            data.pop(ATTR_SENDSPIN_SERVERS_ATTRIBUTES, None)
+
     def _prepare_audio_sensor(self, data: dict, code: str, value: Any) -> None:
         """Store an audio setting and create a diagnostic sensor for it.
 
@@ -828,7 +852,7 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
         }
 
     async def _async_prepare_extras(self, data: dict) -> None:
-        """Prepare the startup selects.
+        """Prepare the startup selects and the Sendspin sensor.
 
         :param data: dict
         """
@@ -864,6 +888,27 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
             if self.new_select_callback:
                 async_dispatcher_send(
                     self.hass, SIGNAL_NEW_SELECT, self.selects[key]
+                )
+
+        if (
+            data.get(ATTR_SENDSPIN_AVAILABLE)
+            and ATTR_SENDSPIN_SERVERS in data
+            and ATTR_SENDSPIN_SERVERS not in self.sensors
+        ):
+            self.sensors[ATTR_SENDSPIN_SERVERS] = LedFxEntityDescription(
+                description=SensorEntityDescription(
+                    key=ATTR_SENDSPIN_SERVERS,
+                    translation_key=ATTR_SENDSPIN_SERVERS,
+                    icon="mdi:server-network",
+                    entity_category=EntityCategory.DIAGNOSTIC,
+                    entity_registry_enabled_default=True,
+                ),
+                device_info=self.device_info,
+            )
+
+            if self.new_sensor_callback:
+                async_dispatcher_send(
+                    self.hass, SIGNAL_NEW_SENSOR, self.sensors[ATTR_SENDSPIN_SERVERS]
                 )
 
 

@@ -80,6 +80,9 @@ class LedFxSensor(LedFxEntity, SensorEntity):
         )
 
         self._attr_native_value = self._updater.data.get(entity.description.key, None)
+        self._attr_extra_state_attributes = self._updater.data.get(
+            f"{entity.description.key}_attributes"
+        )
         self._attr_device_info = entity.device_info
 
         if entity.description.key in SENSOR_ICONS:
@@ -91,14 +94,19 @@ class LedFxSensor(LedFxEntity, SensorEntity):
         is_available: bool = self._updater.data.get(ATTR_STATE, False)
 
         state: Any = self._updater.data.get(self.entity_description.key, None)
+        attributes: dict | None = self._updater.data.get(
+            f"{self.entity_description.key}_attributes"
+        )
 
         if (
             self._attr_native_value == state
             and self._attr_available == is_available  # type: ignore
+            and self._attr_extra_state_attributes == attributes
         ):
             return
 
         self._attr_available = is_available
         self._attr_native_value = state
+        self._attr_extra_state_attributes = attributes
 
         self.async_write_ha_state()

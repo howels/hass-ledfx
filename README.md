@@ -50,8 +50,19 @@ LedFx configuration version 2 reports further settings. The integration creates 
 |---|---|---|
 | Startup scene | select | Sets `startup_scene_id`. LedFx activates that scene when it starts. `None` activates no scene. |
 | Startup playlist | select | Sets `startup_playlist_id`. LedFx starts that playlist when it starts. `None` starts no playlist. |
+| Sendspin servers | diagnostic sensor | Counts the configured Sendspin servers. The `servers` attribute lists each server id, URL and client name. LedFx must report the Sendspin feature. |
 
 Neither startup setting restarts LedFx.
+
+## Services
+
+Each service takes `config_entry_id`, the id of the LedFx entry in Home Assistant. LedFx validates the values and returns its reason for a rejection.
+
+| Service | Fields | Effect |
+|---|---|---|
+| `ledfx.add_sendspin_server` | `server_id`, `server_url`, optional `client_name` | Adds a Sendspin server. `server_url` starts with `ws://` or `wss://`. LedFx converts `server_id` into the stored id. |
+| `ledfx.update_sendspin_server` | `server_id`, `server_url` and `client_name` (at least one) | Changes a configured server. |
+| `ledfx.remove_sendspin_server` | `server_id` | Removes a configured server. |
 
 ## Performance
 ![](/images/performance.gif)

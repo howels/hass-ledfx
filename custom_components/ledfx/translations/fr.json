@@ -67,6 +67,11 @@
       "playback": {
         "name": "Lecture"
       }
+    },
+    "sensor": {
+      "sendspin_servers": {
+        "name": "Serveurs Sendspin"
+      }
     }
   },
   "system_health": {

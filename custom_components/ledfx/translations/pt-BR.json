@@ -67,6 +67,11 @@
       "playback": {
         "name": "Reprodução"
       }
+    },
+    "sensor": {
+      "sendspin_servers": {
+        "name": "Servidores Sendspin"
+      }
     }
   },
   "system_health": {

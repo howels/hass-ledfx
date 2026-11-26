@@ -70,11 +70,84 @@
       "playback": {
         "name": "Playback"
       }
+    },
+    "sensor": {
+      "sendspin_servers": {
+        "name": "Sendspin servers"
+      }
     }
   },
   "system_health": {
     "info": {
       "version": "Version"
+    }
+  },
+  "services": {
+    "add_sendspin_server": {
+      "name": "Add Sendspin server",
+      "description": "Adds a Sendspin server to the LedFx configuration.",
+      "fields": {
+        "config_entry_id": {
+          "name": "LedFx instance",
+          "description": "The LedFx instance to change."
+        },
+        "server_id": {
+          "name": "Server name",
+          "description": "Name of the server. LedFx converts it into the server id."
+        },
+        "server_url": {
+          "name": "Server URL",
+          "description": "WebSocket URL of the Sendspin server. It starts with ws:// or wss://."
+        },
+        "client_name": {
+          "name": "Client name",
+          "description": "Name that LedFx announces to the server. LedFx uses LedFx when this is empty."
+        }
+      }
+    },
+    "update_sendspin_server": {
+      "name": "Update Sendspin server",
+      "description": "Changes the URL or the client name of a configured Sendspin server.",
+      "fields": {
+        "config_entry_id": {
+          "name": "LedFx instance",
+          "description": "The LedFx instance to change."
+        },
+        "server_id": {
+          "name": "Server id",
+          "description": "Id of the configured server. The Sendspin servers sensor lists the ids."
+        },
+        "server_url": {
+          "name": "Server URL",
+          "description": "New WebSocket URL of the Sendspin server."
+        },
+        "client_name": {
+          "name": "Client name",
+          "description": "New name that LedFx announces to the server."
+        }
+      }
+    },
+    "remove_sendspin_server": {
+      "name": "Remove Sendspin server",
+      "description": "Removes a Sendspin server from the LedFx configuration.",
+      "fields": {
+        "config_entry_id": {
+          "name": "LedFx instance",
+          "description": "The LedFx instance to change."
+        },
+        "server_id": {
+          "name": "Server id",
+          "description": "Id of the configured server. The Sendspin servers sensor lists the ids."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "entry_not_found": {
+      "message": "No LedFx instance has the configuration entry id {entry_id}."
+    },
+    "entry_not_loaded": {
+      "message": "The LedFx instance {title} is not loaded."
     }
   }
 }

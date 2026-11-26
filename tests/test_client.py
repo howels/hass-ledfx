@@ -308,6 +308,33 @@ async def test_set_config(
     )
 
 
+async def test_sendspin_server_calls(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The Sendspin calls use the server endpoints."""
+
+    client = _client(hass)
+    aioclient_mock.post(get_url("sendspin/servers"), json={"status": "success"})
+    aioclient_mock.put(get_url("sendspin/servers/a%20b"), json={"status": "success"})
+    aioclient_mock.delete(get_url("sendspin/servers/a%20b"), json={"status": "success"})
+
+    await client.add_sendspin_server("Lounge", "ws://192.0.2.1:8927/sendspin")
+    assert _last_call(aioclient_mock)[2] == {
+        "id": "Lounge",
+        "server_url": "ws://192.0.2.1:8927/sendspin",
+    }
+
+    await client.add_sendspin_server("Lounge", "ws://192.0.2.1:8927/sendspin", "Tv")
+    assert _last_call(aioclient_mock)[2]["client_name"] == "Tv"
+
+    await client.update_sendspin_server("a b", client_name="Tv")
+    assert _last_call(aioclient_mock)[0] == Method.PUT.value
+    assert _last_call(aioclient_mock)[2] == {"client_name": "Tv"}
+
+    await client.remove_sendspin_server("a b")
+    assert _last_call(aioclient_mock)[0] == Method.DELETE.value
+
+
 async def test_failure_reason(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:

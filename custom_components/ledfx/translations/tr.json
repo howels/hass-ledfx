@@ -67,6 +67,11 @@
       "playback": {
         "name": "Oynatma"
       }
+    },
+    "sensor": {
+      "sendspin_servers": {
+        "name": "Sendspin sunucuları"
+      }
     }
   },
   "system_health": {
