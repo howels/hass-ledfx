@@ -34,6 +34,12 @@ Alternatively, you can install it manually. Just copy and paste the content of t
 
 To connect, enter the ip address and port. And also if you use basic auth, enter the user and password.
 
+**HTTPS:** Enable `Use HTTPS` when LedFx sits behind a TLS reverse proxy. Entering `https://` before the address enables it as well, and `http://` disables it. Existing entries keep using HTTP.
+
+`Verify the HTTPS certificate` is enabled by default. Disable it only for a self-signed certificate.
+
+**Host names:** LedFx answers a request only when its `Host` header is an IP address, a local name, or an entry in `allowed_hosts` in the LedFx `config.yaml`. LedFx returns 403 for any other name, and the integration reports that as a rejected request. Add the DNS name of a reverse proxy to `allowed_hosts`.
+
 ❗ Via YAML (legacy way) not supported
 
 ## Performance

@@ -42,9 +42,11 @@ CONF_BASIC_AUTH: Final = "basic_auth"
 DEFAULT_SCAN_INTERVAL: Final = 7
 DEFAULT_TIMEOUT: Final = 10
 DEFAULT_POST_TIMEOUT: Final = 60
+DEFAULT_SSL: Final = False
+DEFAULT_VERIFY_SSL: Final = True
 
 """LedFx API client const"""
-CLIENT_URL: Final = "http://{ip}:{port}/api"
+CLIENT_URL: Final = "{scheme}://{ip}:{port}/api"
 
 """Attributes"""
 ATTR_STATE: Final = "state"

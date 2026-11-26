@@ -50,6 +50,7 @@ class LedFxClient:
         port: str,
         authorization: str | None = None,
         timeout: int = DEFAULT_TIMEOUT,
+        use_ssl: bool = False,
     ) -> None:
         """Initialize API client.
 
@@ -58,6 +59,7 @@ class LedFxClient:
         :param port: str: port
         :param authorization: str | None: Value of the Authorization header
         :param timeout: int: Query execution timeout
+        :param use_ssl: bool: Use HTTPS instead of HTTP
         """
 
         ip = ip.removesuffix("/")
@@ -68,7 +70,9 @@ class LedFxClient:
         self._timeout = timeout
 
         host: str = f"[{ip}]" if ":" in ip and not ip.startswith("[") else ip
-        self._url = CLIENT_URL.format(ip=host, port=port)
+        self._url = CLIENT_URL.format(
+            scheme="https" if use_ssl else "http", ip=host, port=port
+        )
 
         self.diagnostics: dict[str, Any] = {}
 

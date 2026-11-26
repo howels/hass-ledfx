@@ -5,8 +5,8 @@
       "already_configured": "Device is already configured"
     },
     "error": {
-      "request.error": "Failed to complete the request. Check if the data is correct.",
-      "connection.error": "There is no connection. Check if the data is correct."
+      "request.error": "LedFx rejected the request. Check the basic auth credentials. When you connect by a DNS name, add that name to allowed_hosts in the LedFx configuration.",
+      "connection.error": "There is no connection. Check the address, the port and the HTTPS settings."
     },
     "step": {
       "user": {
@@ -15,6 +15,8 @@
         "data": {
           "ip_address": "IP address",
           "port": "Port",
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify the HTTPS certificate",
           "basic_auth": "Basic Auth",
           "username": "Username",
           "password": "Password",
@@ -26,8 +28,8 @@
   },
   "options": {
     "error": {
-      "request.error": "Failed to complete the request. Check if the data is correct.",
-      "connection.error": "There is no connection. Check if the data is correct."
+      "request.error": "LedFx rejected the request. Check the basic auth credentials. When you connect by a DNS name, add that name to allowed_hosts in the LedFx configuration.",
+      "connection.error": "There is no connection. Check the address, the port and the HTTPS settings."
     },
     "step": {
       "init": {
@@ -36,6 +38,8 @@
         "data": {
           "ip_address": "IP address",
           "port": "Port",
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify the HTTPS certificate",
           "basic_auth": "Basic Auth",
           "username": "Username",
           "password": "Password",

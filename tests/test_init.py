@@ -11,10 +11,17 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE
+from homeassistant.const import (
+    CONF_SSL,
+    CONF_VERIFY_SSL,
+    STATE_OFF,
+    STATE_ON,
+    STATE_UNAVAILABLE,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util.dt import utcnow
 from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
@@ -294,3 +301,69 @@ async def test_remove_config_entry_device(hass: HomeAssistant) -> None:
         assert not await async_remove_config_entry_device(hass, config_entry, service)
         assert not await async_remove_config_entry_device(hass, config_entry, current)
         assert await async_remove_config_entry_device(hass, config_entry, stale)
+
+
+async def test_https_entry_builds_an_https_client(hass: HomeAssistant) -> None:
+    """The entry options select HTTPS, certificate checks and device URLs."""
+
+    with patch("custom_components.ledfx.updater.LedFxClient") as mock_client, patch(
+        "custom_components.ledfx.updater.async_get_clientsession",
+        wraps=async_get_clientsession,
+    ) as mock_session:
+        await async_mock_client_2(mock_client)
+
+        _, config_entry = await async_setup(hass)
+        hass.config_entries.async_update_entry(
+            config_entry,
+            data={**config_entry.data, CONF_SSL: True, CONF_VERIFY_SSL: False},
+        )
+
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        updater: LedFxUpdater = config_entry.runtime_data
+
+        assert updater.scheme == "https"
+        assert any(call.args[5] is True for call in mock_client.call_args_list)
+        mock_session.assert_any_call(hass, verify_ssl=False)
+
+        registry = dr.async_get(hass)
+        service = _device(registry, config_entry.entry_id, (DOMAIN, updater.address))
+
+        assert service is not None
+        assert str(service.configuration_url) == f"https://{updater.address}/"
+
+        for code in updater.devices:
+            device = _device(
+                registry, config_entry.entry_id, updater.device_identifier(code)
+            )
+
+            assert device is not None
+            assert str(device.configuration_url).startswith(
+                f"https://{updater.address}/devices/"
+            )
+
+
+async def test_entry_without_https_options_uses_http(hass: HomeAssistant) -> None:
+    """An entry created before the HTTPS options existed keeps using HTTP."""
+
+    with patch("custom_components.ledfx.updater.LedFxClient") as mock_client:
+        await async_mock_client_2(mock_client)
+
+        _, config_entry = await async_setup(hass)
+
+        assert CONF_SSL not in config_entry.data
+
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        updater: LedFxUpdater = config_entry.runtime_data
+
+        assert updater.scheme == "http"
+
+        service = _device(
+            dr.async_get(hass), config_entry.entry_id, (DOMAIN, updater.address)
+        )
+
+        assert service is not None
+        assert str(service.configuration_url) == f"http://{updater.address}/"

@@ -9,13 +9,22 @@ from homeassistant.const import (
     CONF_PASSWORD,
     CONF_PORT,
     CONF_SCAN_INTERVAL,
+    CONF_SSL,
     CONF_TIMEOUT,
     CONF_USERNAME,
+    CONF_VERIFY_SSL,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntry
 
-from .const import DEFAULT_SCAN_INTERVAL, DEFAULT_TIMEOUT, DOMAIN, PLATFORMS
+from .const import (
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SSL,
+    DEFAULT_TIMEOUT,
+    DEFAULT_VERIFY_SSL,
+    DOMAIN,
+    PLATFORMS,
+)
 from .helper import build_authorization, get_config_value
 from .updater import LedFxConfigEntry, LedFxUpdater
 
@@ -41,6 +50,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: LedFxConfigEntry) -> boo
         get_config_value(entry, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
         get_config_value(entry, CONF_TIMEOUT, DEFAULT_TIMEOUT),
         config_entry=entry,
+        ssl=get_config_value(entry, CONF_SSL, DEFAULT_SSL),
+        verify_ssl=get_config_value(entry, CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
     )
 
     # The updater records an unreachable LedFx in the `state` binary sensor

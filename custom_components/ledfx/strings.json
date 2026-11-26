@@ -4,8 +4,8 @@
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
     },
     "error": {
-      "request.error": "Failed to complete the request. Check if the data is correct.",
-      "connection.error": "There is no connection. Check if the data is correct."
+      "request.error": "LedFx rejected the request. Check the basic auth credentials. When you connect by a DNS name, add that name to allowed_hosts in the LedFx configuration.",
+      "connection.error": "There is no connection. Check the address, the port and the HTTPS settings."
     },
     "step": {
       "user": {
@@ -14,6 +14,8 @@
         "data": {
           "ip_address": "[%key:common::config_flow::data::ip_address%]",
           "port": "[%key:common::config_flow::data::port%]",
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify the HTTPS certificate",
           "basic_auth": "Basic Auth",
           "username": "[%key:common::config_flow::data::username%]",
           "password": "[%key:common::config_flow::data::password%]",
@@ -25,8 +27,8 @@
   },
   "options": {
     "error": {
-      "request.error": "Failed to complete the request. Check if the data is correct.",
-      "connection.error": "There is no connection. Check if the data is correct."
+      "request.error": "LedFx rejected the request. Check the basic auth credentials. When you connect by a DNS name, add that name to allowed_hosts in the LedFx configuration.",
+      "connection.error": "There is no connection. Check the address, the port and the HTTPS settings."
     },
     "step": {
       "init": {
@@ -35,6 +37,8 @@
         "data": {
           "ip_address": "[%key:common::config_flow::data::ip_address%]",
           "port": "[%key:common::config_flow::data::port%]",
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify the HTTPS certificate",
           "basic_auth": "Basic Auth",
           "username": "[%key:common::config_flow::data::username%]",
           "password": "[%key:common::config_flow::data::password%]",

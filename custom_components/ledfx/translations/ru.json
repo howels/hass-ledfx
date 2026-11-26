@@ -12,6 +12,8 @@
         "data": {
           "ip_address": "IP-адрес",
           "port": "Порт",
+          "ssl": "Использовать HTTPS",
+          "verify_ssl": "Проверять сертификат HTTPS",
           "basic_auth": "Basic Auth",
           "username": "Имя пользователя",
           "password": "Пароль",
@@ -33,6 +35,8 @@
         "data": {
           "ip_address": "IP-адрес",
           "port": "Порт",
+          "ssl": "Использовать HTTPS",
+          "verify_ssl": "Проверять сертификат HTTPS",
           "basic_auth": "Basic Auth",
           "username": "Имя пользователя",
           "password": "Пароль",

@@ -10,14 +10,17 @@ from typing import Final
 from unittest.mock import AsyncMock, patch
 
 import pytest
+import voluptuous as vol
 from homeassistant import config_entries, data_entry_flow, setup
 from homeassistant.const import (
     CONF_IP_ADDRESS,
     CONF_PASSWORD,
     CONF_PORT,
     CONF_SCAN_INTERVAL,
+    CONF_SSL,
     CONF_TIMEOUT,
     CONF_USERNAME,
+    CONF_VERIFY_SSL,
 )
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry, load_fixture
@@ -540,3 +543,127 @@ async def test_options_flow_connection_error(hass: HomeAssistant) -> None:
     assert result_save["step_id"] == "init"
     assert result_save["errors"]["base"] == "connection.error"
     assert len(mock_async_setup_entry.mock_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_user_https(hass: HomeAssistant) -> None:
+    """A URL typed into the address field selects HTTPS."""
+
+    await setup.async_setup_component(hass, "http", {})
+    result_init = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    with patch(
+        "custom_components.ledfx.async_setup_entry",
+        return_value=True,
+    ) as mock_async_setup_entry, patch(
+        "custom_components.ledfx.helper.LedFxClient"
+    ) as mock_client, patch(
+        "custom_components.ledfx.helper.async_get_clientsession"
+    ) as mock_session:
+        mock_client.return_value.config = AsyncMock(
+            return_value=json.loads(load_fixture("config_data.json"))
+        )
+
+        result = await hass.config_entries.flow.async_configure(
+            result_init["flow_id"],
+            {
+                CONF_IP_ADDRESS: "https://ledfx.example.com/",
+                CONF_PORT: "443",
+                CONF_BASIC_AUTH: False,
+                CONF_VERIFY_SSL: False,
+            },
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert result["title"] == "ledfx.example.com:443"
+    assert result["data"][CONF_IP_ADDRESS] == "ledfx.example.com"
+    assert result["data"][CONF_SSL] is True
+    assert result["data"][CONF_VERIFY_SSL] is False
+
+    mock_session.assert_called_once_with(hass, verify_ssl=False)
+    assert mock_client.call_args.args[1] == "ledfx.example.com"
+    assert mock_client.call_args.args[5] is True
+    assert len(mock_async_setup_entry.mock_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_user_defaults_to_http(hass: HomeAssistant) -> None:
+    """HTTP with certificate verification is the default."""
+
+    await setup.async_setup_component(hass, "http", {})
+    result_init = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    with patch(
+        "custom_components.ledfx.async_setup_entry",
+        return_value=True,
+    ), patch("custom_components.ledfx.helper.LedFxClient") as mock_client:
+        mock_client.return_value.config = AsyncMock(
+            return_value=json.loads(load_fixture("config_data.json"))
+        )
+
+        result = await hass.config_entries.flow.async_configure(
+            result_init["flow_id"],
+            {
+                CONF_IP_ADDRESS: MOCK_IP_ADDRESS,
+                CONF_PORT: MOCK_PORT,
+                CONF_BASIC_AUTH: False,
+            },
+        )
+        await hass.async_block_till_done()
+
+    assert result["data"][CONF_SSL] is False
+    assert result["data"][CONF_VERIFY_SSL] is True
+    assert mock_client.call_args.args[5] is False
+
+
+@pytest.mark.asyncio
+async def test_options_flow_https(hass: HomeAssistant) -> None:
+    """The options flow offers the stored HTTPS settings and saves changes."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=OPTIONS_FLOW_DATA | {CONF_SSL: True, CONF_VERIFY_SSL: True},
+        options={},
+    )
+    config_entry.add_to_hass(hass)
+
+    await setup.async_setup_component(hass, "http", {})
+
+    with patch(
+        "custom_components.ledfx.async_setup_entry",
+        return_value=True,
+    ), patch("custom_components.ledfx.helper.LedFxClient") as mock_client:
+        mock_client.return_value.config = AsyncMock(
+            return_value=json.loads(load_fixture("config_data.json"))
+        )
+
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        result_init = await hass.config_entries.options.async_init(
+            config_entry.entry_id
+        )
+
+        schema = result_init["data_schema"].schema
+        defaults = {
+            str(key): key.default() for key in schema if key.default is not vol.UNDEFINED
+        }
+
+        assert defaults[CONF_SSL] is True
+        assert defaults[CONF_VERIFY_SSL] is True
+
+        result_save = await hass.config_entries.options.async_configure(
+            result_init["flow_id"],
+            user_input=OPTIONS_FLOW_EDIT_DATA
+            | {CONF_SSL: True, CONF_VERIFY_SSL: False},
+        )
+
+    assert result_save["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert config_entry.options[CONF_SSL] is True
+    assert config_entry.options[CONF_VERIFY_SSL] is False
+    assert mock_client.call_args.args[5] is True

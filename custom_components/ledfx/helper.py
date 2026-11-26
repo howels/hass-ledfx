@@ -8,14 +8,19 @@ from http import HTTPStatus
 from typing import Any
 
 from homeassistant import config_entries
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.const import (
+    CONF_IP_ADDRESS,
+    CONF_PASSWORD,
+    CONF_SSL,
+    CONF_USERNAME,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_integration
 from homeassistant.util import slugify
 
 from .client import LedFxClient
-from .const import DEFAULT_TIMEOUT, DOMAIN
+from .const import DEFAULT_SSL, DEFAULT_TIMEOUT, DEFAULT_VERIFY_SSL, DOMAIN
 from .enums import EffectCategory
 from .exceptions import LedFxConnectionError, LedFxRequestError
 
@@ -47,6 +52,8 @@ async def async_verify_access(  # pylint: disable=too-many-arguments
     username: str | None,
     password: str | None,
     timeout: int = DEFAULT_TIMEOUT,
+    use_ssl: bool = DEFAULT_SSL,
+    verify_ssl: bool = DEFAULT_VERIFY_SSL,
 ) -> HTTPStatus:
     """Verify authentication data.
 
@@ -60,11 +67,12 @@ async def async_verify_access(  # pylint: disable=too-many-arguments
     """
 
     client: LedFxClient = LedFxClient(
-        async_get_clientsession(hass),
+        async_get_clientsession(hass, verify_ssl=verify_ssl),
         ip,
         port,
         build_authorization(username, password),
         timeout,
+        use_ssl,
     )
 
     try:
@@ -106,6 +114,37 @@ def build_authorization(username: str | None, password: str | None) -> str | Non
     credentials: str = b64encode(f"{username}:{password}".encode()).decode("ascii")
 
     return f"Basic {credentials}"
+
+
+def normalise_user_input(user_input: dict) -> dict:
+    """Move a URL scheme typed into the address field into the HTTPS setting.
+
+    `https://ledfx.example.com/` becomes the address `ledfx.example.com` with
+    `ssl` set. `http://` clears `ssl`. The scheme overrides the checkbox, because
+    the user typed it explicitly.
+
+    :param user_input: dict: User input
+    :return dict: User input with a plain host name or address
+    """
+
+    address: str | None = user_input.get(CONF_IP_ADDRESS)
+
+    if not isinstance(address, str):
+        return user_input
+
+    address = address.strip()
+    result: dict = dict(user_input)
+
+    for scheme, use_ssl in (("https://", True), ("http://", False)):
+        if address.lower().startswith(scheme):
+            address = address[len(scheme) :]
+            result[CONF_SSL] = use_ssl
+
+            break
+
+    result[CONF_IP_ADDRESS] = address.rstrip("/")
+
+    return result
 
 
 def clean_flow_user_input(user_input: dict, supports_basic_auth: bool = False) -> dict:

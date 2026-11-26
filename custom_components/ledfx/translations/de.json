@@ -12,6 +12,8 @@
         "data": {
           "ip_address": "IP address",
           "port": "Port",
+          "ssl": "HTTPS verwenden",
+          "verify_ssl": "HTTPS-Zertifikat prüfen",
           "basic_auth": "Basic Auth",
           "username": "Username",
           "password": "Password",
@@ -33,6 +35,8 @@
         "data": {
           "ip_address": "IP address",
           "port": "Port",
+          "ssl": "HTTPS verwenden",
+          "verify_ssl": "HTTPS-Zertifikat prüfen",
           "basic_auth": "Basic Auth",
           "username": "Username",
           "password": "Password",

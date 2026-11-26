@@ -282,6 +282,37 @@ async def test_no_credentials_sends_no_header(hass: HomeAssistant) -> None:
     assert session.request.call_args.kwargs["headers"] is None
 
 
+async def test_https_url(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A client built with use_ssl requests the HTTPS URL."""
+
+    url: str = get_url("scenes").replace("http://", "https://", 1)
+    aioclient_mock.get(url, text=load_fixture("scenes_data.json"))
+
+    client = LedFxClient(
+        async_get_clientsession(hass), MOCK_IP_ADDRESS, MOCK_PORT, use_ssl=True
+    )
+
+    assert await client.scenes() == json.loads(load_fixture("scenes_data.json"))
+    assert _last_call(aioclient_mock)[:2] == (Method.GET.value, url)
+
+
+async def test_https_url_with_ipv6(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """An IPv6 host is bracketed under HTTPS as well."""
+
+    url: str = "https://[fd00::1]:8443/api/scenes"
+    aioclient_mock.get(url, text=load_fixture("scenes_data.json"))
+
+    await LedFxClient(
+        async_get_clientsession(hass), "fd00::1", "8443", use_ssl=True
+    ).scenes()
+
+    assert _last_call(aioclient_mock)[1] == url
+
+
 async def test_connection_error(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:

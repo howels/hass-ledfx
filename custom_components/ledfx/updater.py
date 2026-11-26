@@ -44,7 +44,9 @@ from .const import (
     ATTR_SELECT_AUDIO_INPUT_OPTIONS,
     ATTR_STATE,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SSL,
     DEFAULT_TIMEOUT,
+    DEFAULT_VERIFY_SSL,
     DOMAIN,
     MAINTAINER,
     NAME,
@@ -99,6 +101,8 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
         scan_interval: int = DEFAULT_SCAN_INTERVAL,
         timeout: int = DEFAULT_TIMEOUT,
         config_entry: ConfigEntry | None = None,
+        ssl: bool = DEFAULT_SSL,
+        verify_ssl: bool = DEFAULT_VERIFY_SSL,
     ) -> None:
         """Initialize updater.
 
@@ -109,18 +113,22 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
         :param scan_interval: int: Update interval
         :param timeout: int: Query execution timeout
         :param config_entry: ConfigEntry | None: Config entry that owns the updater
+        :param ssl: bool: Use HTTPS instead of HTTP
+        :param verify_ssl: bool: Verify the HTTPS certificate
         """
 
         self.client = LedFxClient(
-            async_get_clientsession(hass),
+            async_get_clientsession(hass, verify_ssl=verify_ssl),
             ip,
             port,
             authorization,
             timeout,
+            ssl,
         )
 
         self.ip = ip  # pylint: disable=invalid-name
         self.port = port
+        self.scheme: str = "https" if ssl else "http"
 
         super().__init__(
             hass,
@@ -187,7 +195,7 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
             name=NAME,
             manufacturer=MAINTAINER,
             sw_version=self.data.get(ATTR_DEVICE_SW_VERSION, None),
-            configuration_url=f"http://{self.address}/",
+            configuration_url=f"{self.scheme}://{self.address}/",
         )
 
     def device_identifier(self, code: str) -> tuple[str, str]:
@@ -604,7 +612,7 @@ class LedFxUpdater(DataUpdateCoordinator[dict[str, Any]]):
                 identifiers={self.device_identifier(code)},
                 name=device_config.get("name", code),
                 model=device_config.get("type") or device.get("type"),
-                configuration_url=f"http://{self.address}/devices/{code}",
+                configuration_url=f"{self.scheme}://{self.address}/devices/{code}",
             )
 
             self._prepare_device_fields(code, device_info)
